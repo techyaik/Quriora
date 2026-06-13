@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api } from '../services/api';
 import { fetchQuranAyah } from '../services/quranFallback';
 import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
+import { useDrawerContext } from '../context/DrawerContext';
 import { themeColors, globalStyles } from '../styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Flame, BookOpen, Clock, ChevronRight, Award, Headphones, Bookmark, FileText } from 'lucide-react-native';
+import { Flame, BookOpen, Clock, ChevronRight, Award, Headphones, Bookmark, FileText, Menu, Settings, HandHeart } from 'lucide-react-native';
 
 interface AyahOfTheDay {
   id: number;
@@ -24,6 +25,8 @@ export const HomeScreen: React.FC = () => {
   const { user } = useAuthContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
+  const insets = useSafeAreaInsets();
+  const { openDrawer } = useDrawerContext();
 
   const [ayahOfDay, setAyahOfDay] = useState<AyahOfTheDay | null>(null);
   const [progress, setProgress] = useState<any>(null);
@@ -70,15 +73,43 @@ export const HomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ backgroundColor: colors.bgSecondary }} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Welcome Header Hero */}
         <LinearGradient
           colors={['#1A8A4A', '#277852', '#165a3b']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.heroCard, { backgroundColor: colors.accent }]}
+          style={[styles.heroCard, { backgroundColor: colors.accent, paddingTop: insets.top + 12 }]}
         >
+          {/* Top Bar / Header Row */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity 
+              onPress={openDrawer} 
+              style={styles.headerBtn}
+              activeOpacity={0.7}
+            >
+              <Menu size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            
+            <View style={styles.headerRightRow}>
+              <TouchableOpacity 
+                onPress={openDrawer} 
+                style={styles.headerBtn}
+                activeOpacity={0.7}
+              >
+                <HandHeart size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => router.push('/explore/settings')} 
+                style={styles.headerBtn}
+                activeOpacity={0.7}
+              >
+                <Settings size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <Text style={styles.heroArabicGreeting}>السلام عليكم</Text>
           <Text style={styles.heroWelcomeTitle}>{user?.displayName || 'Welcome Back'}</Text>
           
@@ -93,156 +124,130 @@ export const HomeScreen: React.FC = () => {
           </View>
         </LinearGradient>
 
-        {/* Continue Reading Card */}
-        {progress ? (
-          <TouchableOpacity
-            onPress={() => router.push(`/quran/surah/${progress.lastSurahId}`)}
-            style={[styles.continueCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-          >
-            <LinearGradient
-              colors={['#1A8A4A', '#165a3b']}
-              style={styles.continueNumIcon}
+        <View style={[styles.mainContentContainer, { backgroundColor: colors.bgSecondary }]}>
+          {/* Continue Reading Card */}
+          {progress ? (
+            <TouchableOpacity
+              onPress={() => router.push(`/quran/surah/${progress.lastSurahId}`)}
+              style={[styles.continueCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
-              <Text style={styles.continueNumText}>{progress.lastSurahId}</Text>
-            </LinearGradient>
-            <View style={styles.continueDetails}>
-              <Text style={[styles.continueLabel, { color: colors.accent }]}>CONTINUE READING</Text>
-              <Text style={[styles.continueTitle, { color: colors.textPrimary }]}>Surah {progress.lastSurahId}</Text>
-              
-              <View style={[styles.progressTrack, { backgroundColor: colors.border, marginTop: 8 }]}>
-                <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: colors.accent }]} />
+              <LinearGradient
+                colors={['#1A8A4A', '#165a3b']}
+                style={styles.continueNumIcon}
+              >
+                <Text style={styles.continueNumText}>{progress.lastSurahId}</Text>
+              </LinearGradient>
+              <View style={styles.continueDetails}>
+                <Text style={[styles.continueLabel, { color: colors.accent }]}>CONTINUE READING</Text>
+                <Text style={[styles.continueTitle, { color: colors.textPrimary }]}>Surah {progress.lastSurahId}</Text>
+                
+                <View style={[styles.progressTrack, { backgroundColor: colors.border, marginTop: 8 }]}>
+                  <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: colors.accent }]} />
+                </View>
               </View>
-            </View>
-            <ChevronRight size={18} color={colors.accent} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={() => router.navigate('/quran')}
-            style={[styles.continueCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-          >
-            <LinearGradient
-              colors={['#1A8A4A', '#165a3b']}
-              style={styles.continueNumIcon}
-            >
-              <BookOpen size={20} color="#fff" />
-            </LinearGradient>
-            <View style={styles.continueDetails}>
-              <Text style={[styles.continueLabel, { color: colors.accent }]}>START READING</Text>
-              <Text style={[styles.continueTitle, { color: colors.textPrimary }]}>Open the Quran</Text>
-            </View>
-            <ChevronRight size={18} color={colors.accent} />
-          </TouchableOpacity>
-        )}
-
-        {/* Ayah of the Day */}
-        {ayahOfDay && (
-          <View style={[styles.ayahCard, { backgroundColor: colors.bgCard, borderColor: colors.goldLight }]}>
-            <Text style={[styles.ayahLabel, { color: colors.accent }]}>✦ AYAH OF THE DAY</Text>
-            <Text style={[styles.ayahArabic, { color: colors.textPrimary }]} numberOfLines={6}>
-              {ayahOfDay.textUthmani}
-            </Text>
-            <View style={[styles.ayahSeparator, { borderTopColor: colors.border }]} />
-            <Text style={[styles.ayahTrans, { color: colors.textSecondary }]}>
-              "{ayahOfDay.translations.find(t => t.language === 'en')?.text}"
-            </Text>
-            <View style={styles.ayahRefRow}>
-              <View style={[styles.ayahRefDot, { backgroundColor: colors.accent }]} />
-              <Text style={[styles.ayahRefText, { color: colors.accent }]}>
-                {ayahOfDay.surah.nameEnglish} {ayahOfDay.surahId}:{ayahOfDay.ayahNumber}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Quick Actions Grid */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
+              <ChevronRight size={18} color={colors.accent} />
+            </TouchableOpacity>
+          ) : (
             <TouchableOpacity
               onPress={() => router.navigate('/quran')}
-              style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+              style={[styles.continueCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
-              <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
-                <BookOpen size={18} color={colors.accent} />
-              </View>
-              <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Read</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.navigate('/listen')}
-              style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-            >
-              <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
-                <Headphones size={18} color={colors.accent} />
-              </View>
-              <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Listen</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/home/bookmarks')}
-              style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-            >
-              <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
-                <Bookmark size={18} color={colors.accent} />
-              </View>
-              <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Saved</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/home/bookmarks')}
-              style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-            >
-              <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
-                <FileText size={18} color={colors.accent} />
-              </View>
-              <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Notes</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Stats Row */}
-        <View style={styles.section}>
-          <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-              <Flame size={20} color="#F4774A" fill="#F4774A" />
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{streak}</Text>
-              <Text style={[styles.statLabelText, { color: colors.textSecondary }]}>day streak</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-              <Award size={20} color={colors.accent} />
-              <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                {todayProgress} / {dailyGoal}
-              </Text>
-              <Text style={[styles.statLabelText, { color: colors.textSecondary }]}>pages today</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Popular Surahs List */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Popular Surahs</Text>
-          <View style={styles.surahList}>
-            {[
-              { id: 1, name: 'Al-Fatiha', arabic: 'الفاتحة', ayahs: 7 },
-              { id: 18, name: 'Al-Kahf', arabic: 'الكهف', ayahs: 110 },
-              { id: 36, name: 'Ya-Sin', arabic: 'يس', ayahs: 83 },
-              { id: 67, name: 'Al-Mulk', arabic: 'الملك', ayahs: 30 },
-            ].map(surah => (
-              <TouchableOpacity
-                key={surah.id}
-                onPress={() => router.push(`/quran/surah/${surah.id}`)}
-                style={[styles.surahItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+              <LinearGradient
+                colors={['#1A8A4A', '#165a3b']}
+                style={styles.continueNumIcon}
               >
-                <View style={[styles.surahNumBadge, { borderColor: colors.gold, backgroundColor: colors.goldLight }]}>
-                  <Text style={[styles.surahNumText, { color: colors.gold }]}>{surah.id}</Text>
+                <BookOpen size={20} color="#fff" />
+              </LinearGradient>
+              <View style={styles.continueDetails}>
+                <Text style={[styles.continueLabel, { color: colors.accent }]}>START READING</Text>
+                <Text style={[styles.continueTitle, { color: colors.textPrimary }]}>Open the Quran</Text>
+              </View>
+              <ChevronRight size={18} color={colors.accent} />
+            </TouchableOpacity>
+          )}
+
+          {/* Ayah of the Day */}
+          {ayahOfDay && (
+            <View style={[styles.ayahCard, { backgroundColor: colors.bgCard, borderColor: colors.goldLight }]}>
+              <Text style={[styles.ayahLabel, { color: colors.accent }]}>✦ AYAH OF THE DAY</Text>
+              <Text style={[styles.ayahArabic, { color: colors.textPrimary }]} numberOfLines={6}>
+                {ayahOfDay.textUthmani}
+              </Text>
+              <View style={[styles.ayahSeparator, { borderTopColor: colors.border }]} />
+              <Text style={[styles.ayahTrans, { color: colors.textSecondary }]}>
+                "{ayahOfDay.translations.find(t => t.language === 'en')?.text}"
+              </Text>
+              <View style={styles.ayahRefRow}>
+                <View style={[styles.ayahRefDot, { backgroundColor: colors.accent }]} />
+                <Text style={[styles.ayahRefText, { color: colors.accent }]}>
+                  {ayahOfDay.surah.nameEnglish} {ayahOfDay.surahId}:{ayahOfDay.ayahNumber}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Quick Actions Grid */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
+            <View style={styles.actionsGrid}>
+              <TouchableOpacity
+                onPress={() => router.navigate('/quran')}
+                style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+              >
+                <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
+                  <BookOpen size={18} color={colors.accent} />
                 </View>
-                <View style={styles.surahInfo}>
-                  <Text style={[styles.surahName, { color: colors.textPrimary }]}>{surah.name}</Text>
-                  <Text style={[styles.surahDetailsText, { color: colors.textSecondary }]}>{surah.ayahs} verses</Text>
-                </View>
-                <Text style={[styles.surahArabicText, { color: colors.accent }]}>{surah.arabic}</Text>
+                <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Read</Text>
               </TouchableOpacity>
-            ))}
+
+              <TouchableOpacity
+                onPress={() => router.navigate('/listen')}
+                style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+              >
+                <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
+                  <Headphones size={18} color={colors.accent} />
+                </View>
+                <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Listen</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.push('/home/bookmarks')}
+                style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+              >
+                <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
+                  <Bookmark size={18} color={colors.accent} />
+                </View>
+                <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Saved</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.push('/home/bookmarks')}
+                style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+              >
+                <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
+                  <FileText size={18} color={colors.accent} />
+                </View>
+                <Text style={[styles.actionLabelText, { color: colors.textSecondary }]}>Notes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Stats Row */}
+          <View style={styles.section}>
+            <View style={styles.statsGrid}>
+              <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <Flame size={20} color="#F4774A" fill="#F4774A" />
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{streak}</Text>
+                <Text style={[styles.statLabelText, { color: colors.textSecondary }]}>day streak</Text>
+              </View>
+              <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <Award size={20} color={colors.accent} />
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                  {todayProgress} / {dailyGoal}
+                </Text>
+                <Text style={[styles.statLabelText, { color: colors.textSecondary }]}>pages today</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -258,18 +263,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: 80,
   },
+  mainContentContainer: {
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -28,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
   heroCard: {
-    borderRadius: 24,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     padding: 22,
-    marginBottom: 16,
+    paddingBottom: 48,
+    marginBottom: 0,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginHorizontal: -6,
+  },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerBtn: {
+    padding: 8,
   },
   heroArabicGreeting: {
     color: 'rgba(255,255,255,0.75)',
