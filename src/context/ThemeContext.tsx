@@ -42,7 +42,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (storedTranslation) setShowTranslationState(storedTranslation !== 'false');
         if (storedTransliteration) setShowTransliterationState(storedTransliteration === 'true');
       } catch (err) {
-        console.error('Error loading theme settings:', err);
+        console.warn('Error loading theme settings:', err);
       } finally {
         setIsLoading(false);
       }
@@ -55,7 +55,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       await AsyncStorage.setItem('nurquran-theme', newTheme);
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   };
 
@@ -65,7 +65,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       await AsyncStorage.setItem('nurquran-font-size', clampedSize.toString());
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   };
 
@@ -74,7 +74,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       await AsyncStorage.setItem('nurquran-show-tajweed', show.toString());
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   };
 
@@ -83,7 +83,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       await AsyncStorage.setItem('nurquran-show-translation', show.toString());
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   };
 
@@ -92,7 +92,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       await AsyncStorage.setItem('nurquran-show-transliteration', show.toString());
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   };
 

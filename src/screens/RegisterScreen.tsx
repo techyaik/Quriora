@@ -6,14 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions,
   KeyboardAvoidingView,
-  Platform,
   ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { useRouter } from 'expo-router';
+import { api, getErrorMessage } from '../services/api';
 import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
@@ -30,8 +28,7 @@ export const RegisterScreen: React.FC = () => {
   const { login } = useAuthContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const navigation = useNavigation<any>();
-  const { width } = useWindowDimensions();
+  const router = useRouter();
 
   const handleSubmit = async () => {
     setError(null);
@@ -59,7 +56,7 @@ export const RegisterScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await axios.post('/api/auth/register', {
+      const res = await api.post('/api/auth/register', {
         email: email.trim(),
         password,
         displayName: displayName.trim()
@@ -69,12 +66,8 @@ export const RegisterScreen: React.FC = () => {
         // Auto-login after successful registration
         await login(res.data.data.token, res.data.data.user);
       }
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-        err.response?.data?.errors?.[0]?.message ||
-        'Registration failed. Please check your credentials.'
-      );
+    } catch (err) {
+      setError(getErrorMessage(err, 'Registration failed. Please check your credentials.'));
     } finally {
       setLoading(false);
     }
@@ -83,7 +76,7 @@ export const RegisterScreen: React.FC = () => {
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={process.env.EXPO_OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -203,7 +196,7 @@ export const RegisterScreen: React.FC = () => {
           {/* Switch to Login Link */}
           <View style={styles.footerRow}>
             <Text style={[styles.footerText, { color: colors.textSecondary }]}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <TouchableOpacity onPress={() => router.replace('/login')}>
               <Text style={[styles.loginLink, { color: colors.accent }]}>Sign In</Text>
             </TouchableOpacity>
           </View>
@@ -217,7 +210,7 @@ export const RegisterScreen: React.FC = () => {
 const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 40 : 20,
+    paddingTop: process.env.EXPO_OS === 'ios' ? 40 : 20,
     paddingBottom: 40,
     justifyContent: 'center',
   },

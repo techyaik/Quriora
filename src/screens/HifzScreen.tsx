@@ -6,19 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  useWindowDimensions,
   ActivityIndicator,
   Alert,
   Modal,
   FlatList
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
+import { themeColors, globalStyles } from '../styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Award,
@@ -56,13 +54,9 @@ interface HifzItem {
 }
 
 export const HifzScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
   const { playAyah, isPlaying, currentAyahNumber, currentSurahId, pause } = useAudioContext();
   const { fontSize, theme } = useThemeContext();
   const colors = themeColors[theme];
-  const { width } = useWindowDimensions();
-  const isCompact = width < 380;
 
   const [surahs, setSurahs] = useState<SurahRange[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +89,7 @@ export const HifzScreen: React.FC = () => {
     const initData = async () => {
       setLoading(true);
       try {
-        const res = await axios.get('/api/surahs');
+        const res = await api.get('/api/surahs');
         if (res.data.success) {
           setSurahs(res.data.data);
         }
@@ -110,7 +104,7 @@ export const HifzScreen: React.FC = () => {
           setStreak(parseInt(storedStreak, 10));
         }
       } catch (err) {
-        console.error('Failed to load initial Hifz data:', err);
+        console.warn('Failed to load initial Hifz data:', err);
       } finally {
         setLoading(false);
       }
@@ -124,7 +118,7 @@ export const HifzScreen: React.FC = () => {
     try {
       await AsyncStorage.setItem('nurquran-hifz-items', JSON.stringify(newList));
     } catch (err) {
-      console.error('Failed to save hifz items:', err);
+      console.warn('Failed to save hifz items:', err);
     }
   };
 
@@ -140,7 +134,7 @@ export const HifzScreen: React.FC = () => {
   const startStudySession = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`/api/surahs/${selectedSurahId}`);
+      const res = await api.get(`/api/surahs/${selectedSurahId}`);
       if (res.data.success) {
         const fullSurah = res.data.data;
         const selectedVerses = fullSurah.ayahs.filter(
@@ -172,7 +166,7 @@ export const HifzScreen: React.FC = () => {
         setTestResult(null);
       }
     } catch (err) {
-      console.error('Failed to load session verses:', err);
+      console.warn('Failed to load session verses:', err);
       Alert.alert('Error', 'Failed to load study verses. Please try again.');
     } finally {
       setLoading(false);
@@ -280,8 +274,8 @@ export const HifzScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Header Hero Banner */}
         <LinearGradient

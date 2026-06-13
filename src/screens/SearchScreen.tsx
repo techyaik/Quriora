@@ -7,16 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  useWindowDimensions,
   Alert,
   Modal
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
+import { themeColors, globalStyles } from '../styles/theme';
 import {
   Search as SearchIcon,
   Keyboard,
@@ -41,11 +40,9 @@ interface AyahSearchResult {
 }
 
 export const SearchScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const { width } = useWindowDimensions();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AyahSearchResult[]>([]);
@@ -73,7 +70,7 @@ export const SearchScreen: React.FC = () => {
   useEffect(() => {
     const initSearch = async () => {
       try {
-        const res = await axios.get('/api/surahs');
+        const res = await api.get('/api/surahs');
         if (res.data.success) {
           setSurahsList(res.data.data);
         }
@@ -83,7 +80,7 @@ export const SearchScreen: React.FC = () => {
           setSearchHistory(JSON.parse(storedHistory));
         }
       } catch (err) {
-        console.error('Failed to init search screen:', err);
+        console.warn('Failed to init search screen:', err);
       }
     };
     initSearch();
@@ -107,7 +104,7 @@ export const SearchScreen: React.FC = () => {
     if (!searchVal.trim()) return;
     setLoading(true);
     try {
-      const res = await axios.get('/api/search', {
+      const res = await api.get('/api/search', {
         params: {
           q: searchVal.trim(),
           lang: language,
@@ -119,7 +116,7 @@ export const SearchScreen: React.FC = () => {
         await saveToHistory(searchVal.trim());
       }
     } catch (err) {
-      console.error('Search request failed:', err);
+      console.warn('Search request failed:', err);
     } finally {
       setLoading(false);
     }
@@ -134,7 +131,7 @@ export const SearchScreen: React.FC = () => {
     try {
       await AsyncStorage.setItem('nurquran-search-history', JSON.stringify(history));
     } catch (err) {
-      console.error(err);
+      console.warn(err);
     }
   };
 
@@ -144,7 +141,7 @@ export const SearchScreen: React.FC = () => {
       await AsyncStorage.removeItem('nurquran-search-history');
       Alert.alert('History Cleared', 'Search history has been cleared.');
     } catch (err) {
-      console.error(err);
+      console.warn(err);
     }
   };
 
@@ -188,8 +185,8 @@ export const SearchScreen: React.FC = () => {
   const activeSurahDetails = surahsList.find(s => s.id === selectedSurah);
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: AUDIO_BAR_HEIGHT + insets.bottom + 24 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         
         {/* Header Title */}
         <View style={styles.titleRow}>
@@ -330,7 +327,7 @@ export const SearchScreen: React.FC = () => {
                   return (
                     <TouchableOpacity
                       key={item.id}
-                      onPress={() => navigation.navigate('QuranStack', { screen: 'Surah', params: { id: item.surahId, highlight: item.id } })}
+                      onPress={() => router.push({ pathname: '/quran/surah/[id]', params: { id: item.surahId, highlight: item.id } })}
                       style={[styles.resultCard, { borderBottomColor: colors.border }]}
                     >
                       <View style={[styles.resultCardHeader, { backgroundColor: colors.bgSecondary }]}>

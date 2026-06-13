@@ -1,20 +1,30 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, TAB_BAR_BASE_HEIGHT, AUDIO_BAR_HEIGHT } from '../styles/theme';
+import { themeColors, AUDIO_BAR_HEIGHT } from '../styles/theme';
 import { Play, Pause } from 'lucide-react-native';
 
 interface BottomAudioBarProps {
-  activeRouteName?: string;
+  compact?: boolean;
 }
 
-export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName }) => {
-  const { isPlaying, currentSurahId, currentAyahNumber, audioProgress, pause, resume, currentReciterId, reciters, lastError, clearError } = useAudioContext();
+export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({
+  compact = false,
+}) => {
+  const {
+    isPlaying,
+    currentSurahId,
+    currentAyahNumber,
+    audioProgress,
+    pause,
+    resume,
+    currentReciterId,
+    reciters,
+    lastError,
+  } = useAudioContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const insets = useSafeAreaInsets();
 
   if (currentSurahId === null || currentAyahNumber === null) return null;
 
@@ -28,15 +38,6 @@ export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName 
     }
   };
 
-  // Determine if active route is a tab screen
-  const isTabScreen = activeRouteName
-    ? ['Home', 'QuranStack', 'SurahList', 'Surah', 'Listen', 'Memorize', 'Explore'].includes(activeRouteName)
-    : true; // Default to true on initial startup (auth home page is Home)
-
-  const bottomPosition = isTabScreen ? TAB_BAR_BASE_HEIGHT + insets.bottom : 0;
-  const barHeight = isTabScreen ? AUDIO_BAR_HEIGHT : AUDIO_BAR_HEIGHT + insets.bottom;
-  const barPaddingBottom = isTabScreen ? 0 : insets.bottom;
-
   return (
     <View
       style={[
@@ -44,9 +45,7 @@ export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName 
         {
           backgroundColor: colors.bgCard,
           borderTopColor: colors.border,
-          bottom: bottomPosition,
-          height: barHeight,
-          paddingBottom: barPaddingBottom
+          height: compact ? 44 : AUDIO_BAR_HEIGHT,
         }
       ]}
     >
@@ -55,7 +54,7 @@ export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName 
         <View style={[styles.progressFill, { width: `${audioProgress * 100}%`, backgroundColor: colors.accent }]} />
       </View>
 
-      <View style={styles.content}>
+      <View style={[styles.content, compact && styles.compactContent]}>
         {lastError ? (
           <View style={styles.errorRow}>
             <Text numberOfLines={1} style={[styles.errorText, { color: colors.accent }]}>
@@ -64,18 +63,20 @@ export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName 
           </View>
         ) : null}
         {/* Track Details */}
-        <View style={styles.details}>
+        {!compact ? <View style={styles.details}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             Surah {currentSurahId} · Ayah {currentAyahNumber}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {activeReciter?.nameEnglish || 'Reciter'}
           </Text>
-        </View>
+        </View> : null}
 
         {/* Controls */}
         <View style={styles.controls}>
-          <TouchableOpacity
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isPlaying ? 'Pause audio' : 'Play audio'}
             onPress={handlePlayToggle}
             style={[styles.playBtn, { backgroundColor: colors.accent }]}
           >
@@ -84,7 +85,7 @@ export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName 
             ) : (
               <Play size={14} color="#fff" style={{ marginLeft: 2 }} />
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -93,16 +94,8 @@ export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName 
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     borderTopWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 99,
+    boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.05)',
   },
   progressTrack: {
     height: 2,
@@ -117,6 +110,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+  },
+  compactContent: {
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
   details: {
     flex: 1,

@@ -43,7 +43,7 @@ export const AyahCard: React.FC<AyahCardProps> = ({
         message: `${ayah.textUthmani}\n\n[${surahNameEnglish} ${surahId}:${ayah.ayahNumber}] — ${enTrans}`,
       });
     } catch (error) {
-      console.error(error);
+      console.warn(error);
     }
   };
 

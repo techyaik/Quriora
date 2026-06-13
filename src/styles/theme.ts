@@ -53,9 +53,7 @@ export const themeColors = {
 
 export type ActiveTheme = keyof typeof themeColors;
 
-// Shared layout constants – keep in sync with AppNavigator tabBarStyle
-export const TAB_BAR_BASE_HEIGHT = 60;   // base tab bar height before safe-area
-export const AUDIO_BAR_HEIGHT = 56;       // BottomAudioBar height
+export const AUDIO_BAR_HEIGHT = 56;
 
 export const globalStyles = StyleSheet.create({
   safeArea: {

@@ -6,14 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions,
   KeyboardAvoidingView,
-  Platform,
   ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { useRouter } from 'expo-router';
+import { api, getErrorMessage } from '../services/api';
 import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
@@ -28,8 +26,7 @@ export const LoginScreen: React.FC = () => {
   const { login, enterAsGuest } = useAuthContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const navigation = useNavigation<any>();
-  const { width } = useWindowDimensions();
+  const router = useRouter();
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -40,29 +37,12 @@ export const LoginScreen: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      const res = await axios.post('/api/auth/login', { email: email.trim(), password });
+      const res = await api.post('/api/auth/login', { email: email.trim(), password });
       if (res.data.success) {
         await login(res.data.data.token, res.data.data.user);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      // Mock Firebase Google Login token exchange
-      const mockGoogleToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imd1ZXN0QG51cnF1cmFuLmNvbSIsIm5hbWUiOiJHdWVzdCBVc2VyIiwiaXNzIjoic2VjdXJldG9rZW4uZ29vZ2xlLmNvbSIsInN1YiI6Imdvb2dsZS1tb2NrLTEyMyJ9.signature';
-      const res = await axios.post('/api/auth/google', { token: mockGoogleToken });
-      if (res.data.success) {
-        await login(res.data.data.token, res.data.data.user);
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Google Sign-In failed.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Login failed. Please check your credentials.'));
     } finally {
       setLoading(false);
     }
@@ -75,7 +55,7 @@ export const LoginScreen: React.FC = () => {
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={process.env.EXPO_OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -160,20 +140,12 @@ export const LoginScreen: React.FC = () => {
             {/* Or Divider */}
             <View style={styles.dividerRow}>
               <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-              <Text style={[styles.dividerText, { color: colors.textTertiary }]}>OR CONTINUE WITH</Text>
+              <Text style={[styles.dividerText, { color: colors.textTertiary }]}>OR</Text>
               <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
 
             {/* Third-party buttons */}
             <View style={styles.oauthRow}>
-              <TouchableOpacity
-                onPress={handleGoogleLogin}
-                disabled={loading}
-                style={[styles.oauthBtn, { borderColor: colors.border, backgroundColor: colors.bgPrimary }]}
-              >
-                <Text style={[styles.oauthBtnText, { color: colors.textPrimary }]}>Google</Text>
-              </TouchableOpacity>
-
               <TouchableOpacity
                 onPress={handleGuestEntry}
                 disabled={loading}
@@ -189,7 +161,7 @@ export const LoginScreen: React.FC = () => {
           {/* Footer Navigation Switcher */}
           <View style={styles.footerRow}>
             <Text style={[styles.footerText, { color: colors.textSecondary }]}>New to Quriora? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <TouchableOpacity onPress={() => router.push('/register')}>
               <Text style={[styles.registerLink, { color: colors.accent }]}>Create an Account</Text>
             </TouchableOpacity>
           </View>
@@ -203,7 +175,7 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 40 : 20,
+    paddingTop: process.env.EXPO_OS === 'ios' ? 40 : 20,
     paddingBottom: 40,
     justifyContent: 'center',
   },

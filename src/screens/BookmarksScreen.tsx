@@ -8,17 +8,15 @@ import {
   TextInput,
   ActivityIndicator,
   Share,
-  useWindowDimensions,
   Alert
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
-import * as Clipboard from 'expo-clipboard';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
+import { themeColors, globalStyles } from '../styles/theme';
 import {
   Bookmark,
   Trash2,
@@ -51,11 +49,9 @@ interface BookmarkItem {
 
 export const BookmarksScreen: React.FC = () => {
   const { user, isGuest } = useAuthContext();
-  const insets = useSafeAreaInsets();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const navigation = useNavigation<any>();
-  const { width } = useWindowDimensions();
+  const router = useRouter();
 
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +67,7 @@ export const BookmarksScreen: React.FC = () => {
     setLoading(true);
     try {
       if (user) {
-        const res = await axios.get('/api/user/bookmarks');
+        const res = await api.get('/api/user/bookmarks');
         if (res.data.success) {
           setBookmarks(res.data.data);
         }
@@ -80,7 +76,7 @@ export const BookmarksScreen: React.FC = () => {
         const storedGuestBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
         const guestAyahIds: number[] = JSON.parse(storedGuestBookmarks || '[]');
         if (guestAyahIds.length > 0) {
-          const promises = guestAyahIds.map(id => axios.get(`/api/ayahs/${id}`));
+          const promises = guestAyahIds.map(id => api.get(`/api/ayahs/${id}`));
           const responses = await Promise.all(promises);
           const guestBookmarksList: BookmarkItem[] = await Promise.all(
             responses.map(async (res, idx) => {
@@ -110,7 +106,7 @@ export const BookmarksScreen: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to load bookmarks:', err);
+      console.warn('Failed to load bookmarks:', err);
     } finally {
       setLoading(false);
     }
@@ -123,7 +119,7 @@ export const BookmarksScreen: React.FC = () => {
   const handleDeleteBookmark = async (bookmarkId: number, ayahId: number) => {
     try {
       if (user) {
-        await axios.delete(`/api/user/bookmarks/${bookmarkId}`);
+        await api.delete(`/api/user/bookmarks/${bookmarkId}`);
       } else {
         const storedGuestBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
         let guestBookmarks = JSON.parse(storedGuestBookmarks || '[]');
@@ -134,7 +130,7 @@ export const BookmarksScreen: React.FC = () => {
       setBookmarks(bookmarks.filter(b => b.id !== bookmarkId));
       Alert.alert('Success', 'Bookmark removed.');
     } catch (err) {
-      console.error('Failed to delete bookmark:', err);
+      console.warn('Failed to delete bookmark:', err);
     }
   };
 
@@ -146,7 +142,7 @@ export const BookmarksScreen: React.FC = () => {
   const handleSaveNote = async (item: BookmarkItem) => {
     try {
       if (user) {
-        await axios.put(`/api/user/bookmarks/${item.id}`, { note: editNoteText });
+        await api.put(`/api/user/bookmarks/${item.id}`, { note: editNoteText });
         setBookmarks(bookmarks.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
       } else {
         await AsyncStorage.setItem(`nurquran-guest-note-${item.ayahId}`, editNoteText);
@@ -155,7 +151,7 @@ export const BookmarksScreen: React.FC = () => {
       setEditingId(null);
       Alert.alert('Saved', 'Personal note updated successfully.');
     } catch (err) {
-      console.error('Failed to save note:', err);
+      console.warn('Failed to save note:', err);
     }
   };
 
@@ -181,7 +177,7 @@ export const BookmarksScreen: React.FC = () => {
         title: 'My Quriora Bookmarks'
       });
     } catch (err) {
-      console.error('Failed to share report:', err);
+      console.warn('Failed to share report:', err);
     }
   };
 
@@ -211,8 +207,8 @@ export const BookmarksScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: AUDIO_BAR_HEIGHT + insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Title row */}
         <View style={styles.headerRow}>
@@ -306,7 +302,7 @@ export const BookmarksScreen: React.FC = () => {
                       onSaveNote={handleSaveNote}
                       onCancelEdit={() => setEditingId(null)}
                       onDelete={() => handleDeleteBookmark(b.id, b.ayahId)}
-                      navigation={navigation}
+                      onOpen={() => router.push({ pathname: '/quran/surah/[id]', params: { id: b.ayah.surahId, highlight: b.ayahId } })}
                     />
                   ))}
                 </View>
@@ -324,7 +320,7 @@ export const BookmarksScreen: React.FC = () => {
                   onSaveNote={handleSaveNote}
                   onCancelEdit={() => setEditingId(null)}
                   onDelete={() => handleDeleteBookmark(b.id, b.ayahId)}
-                  navigation={navigation}
+                  onOpen={() => router.push({ pathname: '/quran/surah/[id]', params: { id: b.ayah.surahId, highlight: b.ayahId } })}
                 />
               ))
             )}
@@ -347,7 +343,7 @@ interface BookmarkCardProps {
   onSaveNote: (item: BookmarkItem) => void;
   onCancelEdit: () => void;
   onDelete: () => void;
-  navigation: any;
+  onOpen: () => void;
 }
 
 const BookmarkCard: React.FC<BookmarkCardProps> = ({
@@ -360,7 +356,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
   onSaveNote,
   onCancelEdit,
   onDelete,
-  navigation
+  onOpen,
 }) => {
   const trans = item.ayah.translations.find(t => t.language === 'en')?.text || '';
 
@@ -423,7 +419,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
       {/* Action Row */}
       <View style={[styles.cardActionsRow, { borderTopColor: colors.border }]}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('QuranStack', { screen: 'Surah', params: { id: item.ayah.surahId, highlight: item.ayahId } })}
+          onPress={onOpen}
           style={[styles.cardActionBtn, { backgroundColor: colors.accentLight }]}
         >
           <ExternalLink size={12} color={colors.accent} />

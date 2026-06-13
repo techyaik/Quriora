@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { api } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthContext } from '../context/AuthContext';
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
 import { AyahCard } from '../components/AyahCard';
 import { TafseerPanel } from '../components/TafseerPanel';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
-import { Play, Pause, ChevronLeft, ChevronRight, Menu } from 'lucide-react-native';
+import { themeColors, globalStyles } from '../styles/theme';
+import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 interface TranslationItem { id: number; language: string; translator: string; text: string; }
 interface AyahItem {
@@ -24,12 +25,11 @@ interface SurahData {
 type ReadingMode = 'card' | 'continuous' | 'mushaf';
 
 export const SurahScreen: React.FC = () => {
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string; highlight?: string }>();
   
   const surahId = (() => {
-    const rawId = route.params?.id;
+    const rawId = params.id;
     if (rawId === undefined || rawId === null || rawId === 'undefined' || rawId === 'null') {
       return 1;
     }
@@ -37,10 +37,11 @@ export const SurahScreen: React.FC = () => {
     return isNaN(parsed) ? 1 : parsed;
   })();
 
-  const { user } = useAuthContext();
-  const { fontSize } = useThemeContext();
+  const { user, isGuest } = useAuthContext();
+  const { fontSize, theme } = useThemeContext();
   const { isPlaying, currentAyahNumber, currentSurahId, playSurah, pause, resume } = useAudioContext();
-  const colors = themeColors[useThemeContext().theme];
+  const colors = themeColors[theme];
+  const listRef = React.useRef<FlatList<AyahItem>>(null);
 
   const [surah, setSurah] = useState<SurahData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,24 +53,33 @@ export const SurahScreen: React.FC = () => {
     const fetchSurah = async () => {
       setLoading(true);
       try {
-        const res = await axios.get(`/api/surahs/${surahId}`);
+        const res = await api.get(`/api/surahs/${surahId}`);
         if (res.data.success) {
           setSurah(res.data.data);
         }
         if (user) {
-          const bRes = await axios.get('/api/user/bookmarks');
+          const bRes = await api.get('/api/user/bookmarks');
           if (bRes.data.success) {
             setBookmarks(bRes.data.data.map((b: any) => b.ayahId));
           }
+        } else if (isGuest) {
+          const stored = await AsyncStorage.getItem('nurquran-guest-bookmarks');
+          setBookmarks(JSON.parse(stored || '[]'));
         }
       } catch (err) {
-        console.error(err);
+        console.warn(err);
       } finally {
         setLoading(false);
       }
     };
     fetchSurah();
-  }, [surahId, user]);
+  }, [isGuest, surahId, user]);
+
+  useEffect(() => {
+    if (!surah || !params.highlight) return;
+    const index = surah.ayahs.findIndex(ayah => ayah.id === Number(params.highlight));
+    if (index >= 0) requestAnimationFrame(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.2 }));
+  }, [params.highlight, surah]);
 
   const isSurahPlaying = isPlaying && currentSurahId === surahId;
 
@@ -86,19 +96,25 @@ export const SurahScreen: React.FC = () => {
   const handleBookmark = async (ayahId: number) => {
     const isBookmarked = bookmarks.includes(ayahId);
     try {
+      if (!user) {
+        const next = isBookmarked ? bookmarks.filter(id => id !== ayahId) : [...bookmarks, ayahId];
+        setBookmarks(next);
+        await AsyncStorage.setItem('nurquran-guest-bookmarks', JSON.stringify(next));
+        return;
+      }
       if (isBookmarked) {
-        const bRes = await axios.get('/api/user/bookmarks');
+        const bRes = await api.get('/api/user/bookmarks');
         const record = bRes.data.data.find((b: any) => b.ayahId === ayahId);
         if (record) {
-          await axios.delete(`/api/user/bookmarks/${record.id}`);
+          await api.delete(`/api/user/bookmarks/${record.id}`);
         }
         setBookmarks(bookmarks.filter(id => id !== ayahId));
       } else {
-        await axios.post('/api/user/bookmarks', { ayahId });
+        await api.post('/api/user/bookmarks', { ayahId });
         setBookmarks([...bookmarks, ayahId]);
       }
     } catch (err) {
-      console.error(err);
+      console.warn(err);
     }
   };
 
@@ -139,29 +155,14 @@ export const SurahScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      {/* Back Header Nav bar */}
-      <View style={[styles.topBar, { borderBottomColor: colors.border, backgroundColor: colors.bgSecondary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={16} color={colors.textPrimary} />
-          <Text style={[styles.backText, { color: colors.textPrimary }]}>Surahs</Text>
-        </TouchableOpacity>
-        
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
-          {surah.nameEnglish}
-        </Text>
-
-        <TouchableOpacity onPress={() => handleBookmark(surah.ayahs[0].id)}>
-          <Menu size={16} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <Stack.Screen options={{ title: `Surah ${surah.nameEnglish}` }} />
       {/* Surah Header Card */}
       <View style={styles.headerDetails}>
         <View style={styles.navigationRow}>
           <TouchableOpacity
             disabled={surahId === 1}
-            onPress={() => navigation.navigate('Surah', { id: surahId - 1 })}
+            onPress={() => router.replace(`/quran/surah/${surahId - 1}`)}
             style={[styles.arrowBtn, { borderColor: colors.border, opacity: surahId === 1 ? 0.3 : 1 }]}
           >
             <ChevronLeft size={12} color={colors.textPrimary} />
@@ -173,7 +174,7 @@ export const SurahScreen: React.FC = () => {
 
           <TouchableOpacity
             disabled={surahId === 114}
-            onPress={() => navigation.navigate('Surah', { id: surahId + 1 })}
+            onPress={() => router.replace(`/quran/surah/${surahId + 1}`)}
             style={[styles.arrowBtn, { borderColor: colors.border, opacity: surahId === 114 ? 0.3 : 1 }]}
           >
             <ChevronRight size={12} color={colors.textPrimary} />
@@ -221,14 +222,17 @@ export const SurahScreen: React.FC = () => {
       <View style={styles.scrollArea}>
         {readingMode === 'card' ? (
           <FlatList
+            ref={listRef}
+            contentInsetAdjustmentBehavior="automatic"
             data={surah.ayahs}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderCardItem}
-            contentContainerStyle={[styles.cardListContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]}
+            contentContainerStyle={styles.cardListContent}
             showsVerticalScrollIndicator={false}
+            onScrollToIndexFailed={({ index }) => setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true }), 250)}
           />
         ) : readingMode === 'continuous' ? (
-          <ScrollView contentContainerStyle={[styles.flowContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]} showsVerticalScrollIndicator={false}>
+          <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
             <View style={[styles.flowCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               <Text style={[styles.flowArabicContainer, { lineHeight: 52 }]}>
                 {surah.ayahs.map(ayah => {
@@ -258,7 +262,7 @@ export const SurahScreen: React.FC = () => {
             </View>
           </ScrollView>
         ) : (
-          <ScrollView contentContainerStyle={[styles.flowContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]} showsVerticalScrollIndicator={false}>
+          <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
             {Object.entries(mushafPages).map(([pageNo, pageAyahs]) => (
               <View key={pageNo} style={[styles.mushafPageCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={[styles.pageIndicator, { backgroundColor: colors.bgSecondary }]}>

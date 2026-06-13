@@ -8,32 +8,30 @@ import {
   TextInput,
   Modal,
   Alert,
-  useWindowDimensions
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { api } from '../services/api';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext, Theme } from '../context/ThemeContext';
 import { useAudioContext } from '../context/AudioContext';
 import { useAuthContext } from '../context/AuthContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
+import { themeColors, globalStyles } from '../styles/theme';
 import {
   Sliders,
-  Settings,
   User,
   Volume2,
   Share2,
   Check,
   ChevronRight,
   Sparkles,
-  X
+  X,
+  LogOut
 } from 'lucide-react-native';
 
 export const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const {
     theme,
     setTheme,
@@ -57,9 +55,8 @@ export const SettingsScreen: React.FC = () => {
     setVolume
   } = useAudioContext();
 
-  const { user, isGuest } = useAuthContext();
+  const { user, isGuest, updateUser, logout } = useAuthContext();
   const colors = themeColors[theme];
-  const { width } = useWindowDimensions();
 
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [savingAccount, setSavingAccount] = useState(false);
@@ -73,9 +70,9 @@ export const SettingsScreen: React.FC = () => {
   const syncDB = async (payload: any) => {
     if (isGuest || !user) return;
     try {
-      await axios.put('/api/user/settings', payload);
+      await api.put('/api/user/settings', payload);
     } catch (err) {
-      console.error('Failed to sync settings with DB:', err);
+      console.warn('Failed to sync settings with DB:', err);
     }
   };
 
@@ -83,12 +80,13 @@ export const SettingsScreen: React.FC = () => {
     if (!user) return;
     setSavingAccount(true);
     try {
-      const res = await axios.put('/api/user/profile', { displayName });
+      const res = await api.put('/api/user/profile', { displayName });
       if (res.data.success) {
+        await updateUser({ ...user, ...res.data.data, displayName });
         Alert.alert('Success', 'Profile display name updated successfully.');
       }
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       Alert.alert('Error', 'Failed to update profile.');
     } finally {
       setSavingAccount(false);
@@ -99,7 +97,7 @@ export const SettingsScreen: React.FC = () => {
     try {
       let bookmarks = [];
       if (user) {
-        const res = await axios.get('/api/user/bookmarks');
+        const res = await api.get('/api/user/bookmarks');
         bookmarks = res.data.data;
       } else {
         const storedBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
@@ -110,9 +108,14 @@ export const SettingsScreen: React.FC = () => {
       await Clipboard.setStringAsync(backupData);
       Alert.alert('Copied to Clipboard', 'Your bookmarks backup JSON data has been copied to the clipboard.');
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       Alert.alert('Error', 'Failed to export bookmarks.');
     }
+  };
+
+  const handleEndSession = async () => {
+    await logout();
+    router.replace('/login');
   };
 
   const THEMES = [
@@ -131,8 +134,8 @@ export const SettingsScreen: React.FC = () => {
   const activeReciter = reciters.find(r => r.id === currentReciterId);
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: AUDIO_BAR_HEIGHT + insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Header */}
         <View style={styles.titleRow}>
@@ -404,7 +407,17 @@ export const SettingsScreen: React.FC = () => {
               <Text style={[styles.guestDesc, { color: colors.textSecondary }]}>
                 Sign in to sync your progress, bookmarks, and notes across all your mobile and web devices.
               </Text>
+              <TouchableOpacity onPress={handleEndSession} style={[styles.saveProfileBtn, { backgroundColor: colors.accent }]}>
+                <Text style={styles.saveProfileBtnText}>Go to Sign In</Text>
+              </TouchableOpacity>
             </View>
+          )}
+
+          {!isGuest && user && (
+            <TouchableOpacity onPress={handleEndSession} style={[styles.sessionBtn, { borderColor: colors.border }]}>
+              <LogOut size={16} color="#C0392B" />
+              <Text style={styles.sessionBtnText}>Log Out</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -761,6 +774,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+  },
+  sessionBtn: {
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    marginTop: 14,
+  },
+  sessionBtnText: {
+    color: '#C0392B',
+    fontSize: 12,
+    fontWeight: '800',
   },
   guestCenter: {
     alignItems: 'center',

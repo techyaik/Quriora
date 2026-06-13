@@ -6,17 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
-  FlatList,
-  useWindowDimensions
+  ActivityIndicator
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
-import { Search, X, BookOpen, Star, MessageSquare, GraduationCap, ChevronRight, Bookmark, Settings } from 'lucide-react-native';
+import { themeColors, globalStyles } from '../styles/theme';
+import { Search, X, BookOpen, Star, MessageSquare, GraduationCap, Bookmark, Settings } from 'lucide-react-native';
 
 interface HifzItem {
   id: string;
@@ -25,11 +23,9 @@ interface HifzItem {
 }
 
 export const ExploreScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const { width } = useWindowDimensions();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [hifzList, setHifzList] = useState<HifzItem[]>([]);
@@ -41,7 +37,7 @@ export const ExploreScreen: React.FC = () => {
   useEffect(() => {
     const loadExploreData = async () => {
       try {
-        const res = await axios.get('/api/surahs');
+        const res = await api.get('/api/surahs');
         if (res.data.success) {
           setSurahs(res.data.data.slice(0, 30));
         }
@@ -51,7 +47,7 @@ export const ExploreScreen: React.FC = () => {
           setHifzList(JSON.parse(storedHifz));
         }
       } catch (err) {
-        console.error('Failed to load explore data:', err);
+        console.warn('Failed to load explore data:', err);
       }
     };
     loadExploreData();
@@ -67,14 +63,14 @@ export const ExploreScreen: React.FC = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await axios.get('/api/search', {
+        const res = await api.get('/api/search', {
           params: { q: searchQuery.trim(), lang: 'en' }
         });
         if (res.data.success) {
           setSearchResults(res.data.data.slice(0, 5));
         }
       } catch (err) {
-        console.error('Explore query search failed:', err);
+        console.warn('Explore query search failed:', err);
       } finally {
         setSearching(false);
       }
@@ -88,8 +84,8 @@ export const ExploreScreen: React.FC = () => {
   const hifzPct = hifzList.length > 0 ? Math.round((hifzMemorized.length / hifzList.length) * 100) : 0;
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Search Input Box */}
         <View style={[styles.searchContainer, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -120,7 +116,7 @@ export const ExploreScreen: React.FC = () => {
                   onPress={() => {
                     setSearchQuery('');
                     setSearchResults([]);
-                    navigation.navigate('QuranStack', { screen: 'Surah', params: { id: item.surahId, highlight: item.id } });
+                    router.push({ pathname: '/quran/surah/[id]', params: { id: item.surahId, highlight: item.id } });
                   }}
                   style={[styles.resultItem, { borderBottomColor: colors.border }]}
                 >
@@ -140,7 +136,7 @@ export const ExploreScreen: React.FC = () => {
               onPress={() => {
                 setSearchQuery('');
                 setSearchResults([]);
-                navigation.navigate('Search');
+                router.push('/explore/search');
               }}
               style={styles.moreResultsBtn}
             >
@@ -153,7 +149,7 @@ export const ExploreScreen: React.FC = () => {
         <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 14 }]}>Explore</Text>
         <View style={styles.gridContainer}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('QuranStack', { screen: 'SurahList' })}
+            onPress={() => router.navigate('/quran')}
             style={[styles.gridCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <View style={[styles.gridIconWrap, { backgroundColor: colors.accentLight }]}>
@@ -163,44 +159,41 @@ export const ExploreScreen: React.FC = () => {
             <Text style={[styles.gridCardDesc, { color: colors.textSecondary }]}>Deep commentary</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => {}}
+          <View
             style={[styles.gridCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <View style={[styles.gridIconWrap, { backgroundColor: 'rgba(107,122,222,0.12)' }]}>
               <Star size={20} color="#6B7ADE" />
             </View>
             <Text style={[styles.gridCardTitle, { color: colors.textPrimary }]}>Duas</Text>
-            <Text style={[styles.gridCardDesc, { color: colors.textSecondary }]}>Daily supplications</Text>
-          </TouchableOpacity>
+            <Text style={[styles.gridCardDesc, { color: colors.textSecondary }]}>Coming soon</Text>
+          </View>
 
-          <TouchableOpacity
-            onPress={() => {}}
+          <View
             style={[styles.gridCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <View style={[styles.gridIconWrap, { backgroundColor: 'rgba(212,107,26,0.12)' }]}>
               <MessageSquare size={20} color="#D46B1A" />
             </View>
             <Text style={[styles.gridCardTitle, { color: colors.textPrimary }]}>Hadith</Text>
-            <Text style={[styles.gridCardDesc, { color: colors.textSecondary }]}>Prophetic sayings</Text>
-          </TouchableOpacity>
+            <Text style={[styles.gridCardDesc, { color: colors.textSecondary }]}>Coming soon</Text>
+          </View>
 
-          <TouchableOpacity
-            onPress={() => {}}
+          <View
             style={[styles.gridCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <View style={[styles.gridIconWrap, { backgroundColor: 'rgba(212,75,106,0.12)' }]}>
               <GraduationCap size={20} color="#D44B6A" />
             </View>
             <Text style={[styles.gridCardTitle, { color: colors.textPrimary }]}>Learn</Text>
-            <Text style={[styles.gridCardDesc, { color: colors.textSecondary }]}>Arabic & Tajweed</Text>
-          </TouchableOpacity>
+            <Text style={[styles.gridCardDesc, { color: colors.textSecondary }]}>Coming soon</Text>
+          </View>
         </View>
 
         {/* Hifz Plan Dashboard Card */}
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Memorization</Text>
         <TouchableOpacity
-          onPress={() => navigation.navigate('Memorize')}
+          onPress={() => router.navigate('/memorize')}
           style={[styles.hifzCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
         >
           <View style={styles.hifzHeader}>
@@ -220,7 +213,7 @@ export const ExploreScreen: React.FC = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => navigation.navigate('Memorize')}
+          onPress={() => router.navigate('/memorize')}
           style={[styles.hifzStartBtn, { backgroundColor: colors.accent }]}
         >
           <Star size={16} color="#fff" fill="#fff" />
@@ -237,14 +230,14 @@ export const ExploreScreen: React.FC = () => {
           {surahs.map((surah) => (
             <TouchableOpacity
               key={surah.id}
-              onPress={() => navigation.navigate('QuranStack', { screen: 'Surah', params: { id: surah.id } })}
+              onPress={() => router.push(`/quran/surah/${surah.id}`)}
               style={[styles.pillSurah, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
               <Text style={[styles.pillSurahText, { color: colors.textSecondary }]}>{surah.nameEnglish}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity
-            onPress={() => navigation.navigate('QuranStack', { screen: 'SurahList' })}
+            onPress={() => router.navigate('/quran')}
             style={[styles.pillSurah, { backgroundColor: colors.accent }]}
           >
             <Text style={[styles.pillSurahText, { color: '#fff', fontWeight: '800' }]}>View all →</Text>
@@ -254,7 +247,7 @@ export const ExploreScreen: React.FC = () => {
         {/* Bookmarks / Settings Links Row */}
         <View style={styles.linksRow}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('Bookmarks')}
+            onPress={() => router.push('/explore/bookmarks')}
             style={[styles.linkCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <Bookmark size={16} color={colors.accent} fill={colors.accent} />
@@ -262,7 +255,7 @@ export const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => router.push('/explore/settings')}
             style={[styles.linkCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <Settings size={16} color={colors.accent} />

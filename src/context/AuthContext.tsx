@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { setApiAuthToken } from '../services/api';
 
 export interface User {
   id: string;
@@ -18,19 +18,21 @@ interface AuthContextType {
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
   enterAsGuest: () => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dynamic host resolution helper for Expo Go
-const getBaseUrl = () => {
-  const manifest = Constants.expoConfig || (Constants as any).manifest;
-  const hostUri = manifest?.hostUri;
-  if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    return `http://${ip}:3001`;
-  }
-  return Platform.OS === 'android' ? 'http://10.0.2.2:3001' : 'http://localhost:3001';
+const TOKEN_KEY = 'nurquran-token';
+
+const tokenStorage = {
+  get: () => Platform.OS === 'web' ? AsyncStorage.getItem(TOKEN_KEY) : SecureStore.getItemAsync(TOKEN_KEY),
+  set: (value: string) => Platform.OS === 'web'
+    ? AsyncStorage.setItem(TOKEN_KEY, value)
+    : SecureStore.setItemAsync(TOKEN_KEY, value),
+  remove: () => Platform.OS === 'web'
+    ? AsyncStorage.removeItem(TOKEN_KEY)
+    : SecureStore.deleteItemAsync(TOKEN_KEY),
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -40,12 +42,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Configure axios defaults
-    axios.defaults.baseURL = getBaseUrl();
-
     const loadAuthState = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem('nurquran-token');
+        let storedToken = await tokenStorage.get();
+        const legacyToken = Platform.OS === 'web' ? null : await AsyncStorage.getItem(TOKEN_KEY);
+        if (!storedToken && legacyToken) {
+          storedToken = legacyToken;
+          await tokenStorage.set(legacyToken);
+          await AsyncStorage.removeItem(TOKEN_KEY);
+        }
         const storedUser = await AsyncStorage.getItem('nurquran-user');
         const storedGuest = await AsyncStorage.getItem('nurquran-guest') === 'true';
 
@@ -53,12 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const parsedUser = JSON.parse(storedUser);
           setToken(storedToken);
           setUser(parsedUser);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          setApiAuthToken(storedToken);
         } else if (storedGuest) {
           setIsGuest(true);
         }
       } catch (err) {
-        console.error('Error loading auth state:', err);
+        console.warn('Error loading auth state:', err);
       } finally {
         setIsLoading(false);
       }
@@ -71,12 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
     setIsGuest(false);
     try {
-      await AsyncStorage.setItem('nurquran-token', newToken);
+      await tokenStorage.set(newToken);
       await AsyncStorage.setItem('nurquran-user', JSON.stringify(newUser));
       await AsyncStorage.removeItem('nurquran-guest');
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      setApiAuthToken(newToken);
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   };
 
@@ -85,12 +90,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setIsGuest(false);
     try {
-      await AsyncStorage.removeItem('nurquran-token');
+      await tokenStorage.remove();
+      await AsyncStorage.removeItem(TOKEN_KEY);
       await AsyncStorage.removeItem('nurquran-user');
       await AsyncStorage.removeItem('nurquran-guest');
-      delete axios.defaults.headers.common['Authorization'];
+      setApiAuthToken(null);
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
   };
 
@@ -100,12 +106,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     try {
       await AsyncStorage.setItem('nurquran-guest', 'true');
-      await AsyncStorage.removeItem('nurquran-token');
+      await tokenStorage.remove();
+      await AsyncStorage.removeItem(TOKEN_KEY);
       await AsyncStorage.removeItem('nurquran-user');
-      delete axios.defaults.headers.common['Authorization'];
+      setApiAuthToken(null);
     } catch (e) {
-      console.error(e);
+      console.warn(e);
     }
+  };
+
+  const updateUser = async (nextUser: User) => {
+    setUser(nextUser);
+    await AsyncStorage.setItem('nurquran-user', JSON.stringify(nextUser));
   };
 
   return (
@@ -116,7 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading,
       login,
       logout,
-      enterAsGuest
+      enterAsGuest,
+      updateUser
     }}>
       {children}
     </AuthContext.Provider>

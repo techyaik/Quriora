@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
-import { Play, Pause, Headphones, Check } from 'lucide-react-native';
+import { themeColors, globalStyles } from '../styles/theme';
+import { Play, Pause, Headphones, Check, SkipBack, SkipForward, Square, AlertCircle } from 'lucide-react-native';
 
 export const ListenScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
   const {
     isPlaying, currentSurahId, currentAyahNumber, currentReciterId,
-    reciters, playSurah, pause, resume, changeReciter,
+    reciters, playSurah, pause, resume, stop, nextAyah, prevAyah, seekTo, changeReciter,
     playbackSpeed, setSpeed, isRepeatSurah, toggleRepeatSurah, audioProgress,
+    isLoading, lastError, clearError,
   } = useAudioContext();
 
   const [selectedSurahId, setSelectedSurahId] = useState(currentSurahId || 1);
+  const [progressWidth, setProgressWidth] = useState(1);
   const colors = themeColors[useThemeContext().theme];
 
   const SPEEDS = [0.75, 1, 1.25, 1.5];
@@ -47,8 +46,8 @@ export const ListenScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Hero Player Card */}
         <View style={[styles.playerCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -66,24 +65,49 @@ export const ListenScreen: React.FC = () => {
 
           {/* Progress bar */}
           {currentSurahId === selectedSurahId && (
-            <View style={[styles.progressBarTrack, { backgroundColor: colors.border }]}>
+            <Pressable
+              accessibilityRole="adjustable"
+              accessibilityLabel="Audio progress"
+              onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
+              onPress={(event) => seekTo(Math.max(0, Math.min(1, event.nativeEvent.locationX / progressWidth)))}
+              style={[styles.progressBarTrack, { backgroundColor: colors.border }]}
+            >
               <View style={[styles.progressBarFill, { width: `${audioProgress * 100}%`, backgroundColor: colors.accent }]} />
-            </View>
+            </Pressable>
           )}
 
           {/* Player controls */}
           <View style={styles.playerControls}>
+            <TouchableOpacity onPress={prevAyah} disabled={!currentAyahNumber} style={styles.secondaryControlBtn}>
+              <SkipBack size={19} color={colors.textSecondary} />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={handlePlay}
+              disabled={isLoading}
               style={[styles.primaryPlayBtn, { backgroundColor: colors.accent }]}
             >
-              {isCurrentPlaying ? (
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : isCurrentPlaying ? (
                 <Pause size={20} color="#fff" />
               ) : (
                 <Play size={20} color="#fff" style={{ marginLeft: 2 }} />
               )}
             </TouchableOpacity>
+            <TouchableOpacity onPress={stop} disabled={!currentSurahId} style={styles.secondaryControlBtn}>
+              <Square size={17} color={colors.textSecondary} fill={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={nextAyah} disabled={!currentAyahNumber} style={styles.secondaryControlBtn}>
+              <SkipForward size={19} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
+
+          {lastError && (
+            <TouchableOpacity onPress={clearError} style={styles.audioError}>
+              <AlertCircle size={14} color="#C0392B" />
+              <Text style={styles.audioErrorText}>{lastError}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Speed & loop selectors */}
           <View style={styles.selectorsRow}>
@@ -243,6 +267,27 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  secondaryControlBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  audioError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FDEDEC',
+  },
+  audioErrorText: {
+    color: '#922B21',
+    fontSize: 11,
+    flexShrink: 1,
   },
   selectorsRow: {
     flexDirection: 'row',

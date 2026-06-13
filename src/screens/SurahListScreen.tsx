@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
-import { useAuthContext } from '../context/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { api } from '../services/api';
+import { fetchFallbackSurahs } from '../services/quranFallback';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
+import { themeColors, globalStyles } from '../styles/theme';
 import { Search, ChevronDown } from 'lucide-react-native';
 
 interface Surah {
@@ -19,32 +19,38 @@ interface Surah {
 }
 
 export const SurahListScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
-  const { user } = useAuthContext();
+  const router = useRouter();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
 
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'id' | 'length' | 'revelation'>('id');
+  const [sortBy] = useState<'id' | 'length' | 'revelation'>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  useEffect(() => {
-    const fetchSurahs = async () => {
-      setLoading(true);
-      try {
-        const res = await axios.get('/api/surahs');
-        if (res.data.success) {
-          setSurahs(res.data.data);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchSurahs = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get('/api/surahs', { timeoutMs: 4000 });
+      if (!res.data.success || !Array.isArray(res.data.data) || res.data.data.length !== 114) {
+        throw new Error('Invalid Surah response');
       }
-    };
+      setSurahs(res.data.data);
+    } catch {
+      try {
+        setSurahs(await fetchFallbackSurahs());
+      } catch {
+        setError('Unable to load the Quran index. Check your connection and try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchSurahs();
   }, []);
 
@@ -67,10 +73,12 @@ export const SurahListScreen: React.FC = () => {
     setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
   };
 
+  const juzStartSurahs = [1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 11, 12, 15, 17, 18, 21, 23, 25, 27, 29, 33, 36, 39, 41, 46, 51, 58, 67, 78];
+
   const renderSurahItem = ({ item }: { item: Surah }) => {
     return (
       <TouchableOpacity
-        onPress={() => navigation.navigate('Surah', { id: item.id })}
+        onPress={() => router.push(`/quran/surah/${item.id}`)}
         style={[styles.surahItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
       >
         <View style={[styles.surahNumBadge, { borderColor: colors.gold, backgroundColor: colors.goldLight }]}>
@@ -94,7 +102,7 @@ export const SurahListScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
       {/* Search Header */}
       <View style={styles.searchHeader}>
         <View style={[styles.searchBar, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -123,6 +131,7 @@ export const SurahListScreen: React.FC = () => {
       <View style={styles.juzSection}>
         <Text style={[styles.juzTitle, { color: colors.textSecondary }]}>JUMP TO JUZ</Text>
         <FlatList
+          contentInsetAdjustmentBehavior="automatic"
           horizontal={true}
           showsHorizontalScrollIndicator={false}
           data={Array.from({ length: 30 }, (_, i) => i + 1)}
@@ -130,7 +139,7 @@ export const SurahListScreen: React.FC = () => {
           contentContainerStyle={styles.juzList}
           renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() => navigation.navigate('SurahList', { juz: item })}
+              onPress={() => router.push(`/quran/surah/${juzStartSurahs[item - 1]}`)}
               style={[styles.juzBadge, { borderColor: colors.border, backgroundColor: colors.bgCard }]}
             >
               <Text style={[styles.juzBadgeText, { color: colors.textSecondary }]}>{item}</Text>
@@ -143,12 +152,19 @@ export const SurahListScreen: React.FC = () => {
         <View style={styles.loadingCenter}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
+      ) : error ? (
+        <View style={styles.loadingCenter}>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
+          <TouchableOpacity onPress={fetchSurahs} style={[styles.retryBtn, { backgroundColor: colors.accent }]}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={sorted}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderSurahItem}
-          contentContainerStyle={[styles.listContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -221,6 +237,23 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  errorText: {
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 19,
+    maxWidth: 280,
+  },
+  retryBtn: {
+    marginTop: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
   },
   listContent: {
     paddingHorizontal: 16,

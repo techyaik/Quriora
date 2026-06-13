@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { api } from '../services/api';
 import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles, AUDIO_BAR_HEIGHT } from '../styles/theme';
+import { themeColors, globalStyles } from '../styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Flame, BookOpen, Clock, ChevronRight, Award, Headphones, Bookmark, FileText } from 'lucide-react-native';
 
@@ -18,36 +18,23 @@ interface AyahOfTheDay {
   surah: { nameEnglish: string };
 }
 
-interface PrayerTimings {
-  Fajr: string; Dhuhr: string; Asr: string; Maghrib: string; Isha: string;
-}
-
 export const HomeScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user } = useAuthContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const { width } = useWindowDimensions();
-  const isCompact = width < 380;
 
   const [ayahOfDay, setAyahOfDay] = useState<AyahOfTheDay | null>(null);
   const [progress, setProgress] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fallbacks
-  const dailyGoal = 5;
-  const todayProgress = 0;
-  const streak = 0;
+  const dailyGoal = Number(progress?.dailyGoal ?? 5);
+  const todayProgress = Number(progress?.todayProgress ?? progress?.versesReadToday ?? 0);
+  const streak = Number(progress?.streak ?? progress?.currentStreak ?? 0);
 
   const hijriDate = new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura', {
     day: 'numeric', month: 'long', year: 'numeric'
   }).format(new Date());
-
-  const [prayerTimes] = useState<PrayerTimings>({
-    Fajr: '04:12', Dhuhr: '12:22', Asr: '15:43', Maghrib: '19:04', Isha: '20:34'
-  });
-  const [nextPrayer, setNextPrayer] = useState<{ name: string; time: string } | null>(null);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -55,40 +42,24 @@ export const HomeScreen: React.FC = () => {
       try {
         const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86400000);
         const ayahId = (dayOfYear % 6236) + 1;
-        const ayahRes = await axios.get(`/api/ayahs/${ayahId}`);
+        const ayahRes = await api.get(`/api/ayahs/${ayahId}`);
         if (ayahRes.data.success) {
           const ayah = ayahRes.data.data;
-          const surahRes = await axios.get(`/api/surahs/${ayah.surahId}`);
+          const surahRes = await api.get(`/api/surahs/${ayah.surahId}`);
           setAyahOfDay({ ...ayah, surah: { nameEnglish: surahRes.data.data.nameEnglish } });
         }
         if (user) {
-          const progressRes = await axios.get('/api/user/progress');
+          const progressRes = await api.get('/api/user/progress');
           if (progressRes.data.success) setProgress(progressRes.data.data);
         }
       } catch (err) {
-        console.error('Failed to load dashboard:', err);
+        console.warn('Failed to load dashboard:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchDashboard();
   }, [user]);
-
-  useEffect(() => {
-    const findNext = () => {
-      const now = new Date();
-      let nearest: { name: string; time: string; ms: number } | null = null;
-      Object.entries(prayerTimes).forEach(([name, timeStr]) => {
-        const [h, m] = timeStr.split(':').map(Number);
-        const d = new Date(); d.setHours(h, m, 0, 0);
-        if (d < now) d.setDate(d.getDate() + 1);
-        const ms = d.getTime() - now.getTime();
-        if (!nearest || ms < nearest.ms) nearest = { name, time: timeStr, ms };
-      });
-      if (nearest) setNextPrayer({ name: (nearest as any).name, time: (nearest as any).time });
-    };
-    findNext();
-  }, [prayerTimes]);
 
   if (loading) {
     return (
@@ -98,11 +69,11 @@ export const HomeScreen: React.FC = () => {
     );
   }
 
-  const progressPct = progress ? Math.min(100, Math.round((todayProgress / dailyGoal) * 100)) : 0;
+  const progressPct = dailyGoal > 0 ? Math.min(100, Math.round((todayProgress / dailyGoal) * 100)) : 0;
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: AUDIO_BAR_HEIGHT + 24 }]} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Welcome Header Hero */}
         <LinearGradient
@@ -118,21 +89,17 @@ export const HomeScreen: React.FC = () => {
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeText}>{hijriDate}</Text>
             </View>
-            {nextPrayer && (
-              <View style={[styles.heroBadge, styles.heroBadgeIcon]}>
-                <Clock size={10} color="#fff" />
-                <Text style={styles.heroBadgeText}>
-                  {nextPrayer.name} · {nextPrayer.time}
-                </Text>
-              </View>
-            )}
+            <View style={[styles.heroBadge, styles.heroBadgeIcon]}>
+              <Clock size={10} color="#fff" />
+              <Text style={styles.heroBadgeText}>Daily reflection</Text>
+            </View>
           </View>
         </LinearGradient>
 
         {/* Continue Reading Card */}
         {progress ? (
           <TouchableOpacity
-            onPress={() => navigation.navigate('QuranStack', { screen: 'Surah', params: { id: progress.lastSurahId } })}
+            onPress={() => router.push(`/quran/surah/${progress.lastSurahId}`)}
             style={[styles.continueCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <LinearGradient
@@ -153,7 +120,7 @@ export const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            onPress={() => navigation.navigate('QuranStack', { screen: 'SurahList' })}
+            onPress={() => router.navigate('/quran')}
             style={[styles.continueCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           >
             <LinearGradient
@@ -195,7 +162,7 @@ export const HomeScreen: React.FC = () => {
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('QuranStack', { screen: 'SurahList' })}
+              onPress={() => router.navigate('/quran')}
               style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
               <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
@@ -205,7 +172,7 @@ export const HomeScreen: React.FC = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => navigation.navigate('Listen')}
+              onPress={() => router.navigate('/listen')}
               style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
               <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
@@ -215,7 +182,7 @@ export const HomeScreen: React.FC = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => navigation.navigate('Bookmarks')}
+              onPress={() => router.push('/home/bookmarks')}
               style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
               <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
@@ -225,7 +192,7 @@ export const HomeScreen: React.FC = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => navigation.navigate('Bookmarks')}
+              onPress={() => router.push('/home/bookmarks')}
               style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
               <View style={[styles.actionIconWrap, { backgroundColor: colors.accentLight }]}>
@@ -266,7 +233,7 @@ export const HomeScreen: React.FC = () => {
             ].map(surah => (
               <TouchableOpacity
                 key={surah.id}
-                onPress={() => navigation.navigate('QuranStack', { screen: 'Surah', params: { id: surah.id } })}
+                onPress={() => router.push(`/quran/surah/${surah.id}`)}
                 style={[styles.surahItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
               >
                 <View style={[styles.surahNumBadge, { borderColor: colors.gold, backgroundColor: colors.goldLight }]}>
