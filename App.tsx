@@ -1,69 +1,61 @@
+import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useFonts, Amiri_400Regular, Amiri_700Bold } from '@expo-google-fonts/amiri';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_700Bold,
+  Inter_900Black
+} from '@expo-google-fonts/inter';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from './src/context/AuthContext';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { AudioProvider } from './src/context/AudioContext';
+import { AppNavigator } from './src/navigation/AppNavigator';
 
 export default function App() {
-  const { width } = useWindowDimensions();
-  const isCompact = width < 380;
+  const [fontsLoaded] = useFonts({
+    Amiri_400Regular,
+    Amiri_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_700Bold,
+    Inter_900Black
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingCenter}>
+        <ActivityIndicator size="large" color="#1A8A4A" />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="auto" />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            isCompact ? styles.contentCompact : styles.contentRegular,
-          ]}
-          alwaysBounceVertical={false}
-        >
-          <Text style={[styles.title, isCompact && styles.titleCompact]}>
-            Quriora Mobile
-          </Text>
-          <Text style={styles.body}>
-            Mobile shell ready. Content will stay inside safe areas and scroll when the viewport is short.
-          </Text>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <AudioProvider>
+            <View style={styles.container}>
+              <StatusBar style="auto" />
+              <AppNavigator />
+            </View>
+          </AudioProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  safeArea: {
+  container: {
     flex: 1,
   },
-  content: {
-    flexGrow: 1,
+  loadingCenter: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-  },
-  contentRegular: {
-    padding: 24,
-  },
-  contentCompact: {
-    padding: 16,
-  },
-  title: {
-    maxWidth: '100%',
-    color: '#1B6B4A',
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  titleCompact: {
-    fontSize: 24,
-  },
-  body: {
-    maxWidth: 420,
-    color: '#555',
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
+    backgroundColor: '#FAFAF8',
   },
 });
