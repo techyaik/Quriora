@@ -14,7 +14,7 @@ import { fetchFallbackSurahs, searchQuran } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
-import { Search, X, BookOpen, Star, MessageSquare, GraduationCap, Bookmark, Settings } from 'lucide-react-native';
+import { Search, X, BookOpen, Star, MessageSquare, GraduationCap } from 'lucide-react-native';
 
 interface HifzItem {
   id: string;
@@ -236,24 +236,7 @@ export const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
         </ScrollView>
 
-        {/* Bookmarks / Settings Links Row */}
-        <View style={styles.linksRow}>
-          <TouchableOpacity
-            onPress={() => router.push('/explore/bookmarks')}
-            style={[styles.linkCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-          >
-            <Bookmark size={16} color={colors.accent} fill={colors.accent} />
-            <Text style={[styles.linkCardText, { color: colors.textPrimary }]}>Bookmarks</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.push('/explore/settings')}
-            style={[styles.linkCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-          >
-            <Settings size={16} color={colors.accent} />
-            <Text style={[styles.linkCardText, { color: colors.textPrimary }]}>Settings</Text>
-          </TouchableOpacity>
-        </View>
 
       </ScrollView>
     </SafeAreaView>
