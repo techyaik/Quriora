@@ -77,7 +77,7 @@ export const HomeScreen: React.FC = () => {
           colors={['#1A8A4A', '#277852', '#165a3b']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.heroCard}
+          style={[styles.heroCard, { backgroundColor: colors.accent }]}
         >
           <Text style={styles.heroArabicGreeting}>السلام عليكم</Text>
           <Text style={styles.heroWelcomeTitle}>{user?.displayName || 'Welcome Back'}</Text>

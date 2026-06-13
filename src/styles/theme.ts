@@ -86,6 +86,7 @@ export const globalStyles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
     borderRadius: 24,
+    backgroundColor: '#FAFAF8',
   },
   liquidGlassSm: {
     shadowColor: '#000',
@@ -94,5 +95,6 @@ export const globalStyles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
     borderRadius: 18,
+    backgroundColor: '#FAFAF8',
   }
 });

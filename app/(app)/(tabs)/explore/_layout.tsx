@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { TouchableOpacity } from 'react-native';
-import { Menu, Settings } from 'lucide-react-native';
+import { ArrowLeft, Settings } from 'lucide-react-native';
 import { useThemeContext } from '@/src/context/ThemeContext';
 import { themeColors } from '@/src/styles/theme';
 
@@ -21,14 +21,14 @@ export default function ExploreLayout() {
       <Stack.Screen 
         name="index" 
         options={{ 
-          title: 'Explore Hub',
+          title: '',
           headerLeft: () => (
             <TouchableOpacity 
-              onPress={() => {}} 
+              onPress={() => router.back()} 
               style={{ marginLeft: 8, padding: 8 }}
               activeOpacity={0.7}
             >
-              <Menu size={22} color={colors.textPrimary} />
+              <ArrowLeft size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           ),
           headerRight: () => (

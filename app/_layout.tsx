@@ -13,6 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AudioProvider } from '@/src/context/AudioContext';
 import { AuthProvider } from '@/src/context/AuthContext';
 import { ThemeProvider } from '@/src/context/ThemeContext';
+import { DrawerProvider } from '@/src/context/DrawerContext';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -37,8 +38,10 @@ export default function RootLayout() {
       <AuthProvider>
         <ThemeProvider>
           <AudioProvider>
-            <StatusBar style="auto" />
-            <Stack screenOptions={{ headerShown: false }} />
+            <DrawerProvider>
+              <StatusBar style="auto" />
+              <Stack screenOptions={{ headerShown: false }} />
+            </DrawerProvider>
           </AudioProvider>
         </ThemeProvider>
       </AuthProvider>

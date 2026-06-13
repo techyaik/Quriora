@@ -4,11 +4,13 @@ import { Menu, Settings } from 'lucide-react-native';
 
 import { useThemeContext } from '@/src/context/ThemeContext';
 import { themeColors } from '@/src/styles/theme';
+import { useDrawerContext } from '@/src/context/DrawerContext';
 
 export default function QuranLayout() {
   const router = useRouter();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
+  const { openDrawer } = useDrawerContext();
 
   return (
     <Stack
@@ -22,10 +24,10 @@ export default function QuranLayout() {
       <Stack.Screen 
         name="index" 
         options={{ 
-          title: 'Surah Index',
+          title: '',
           headerLeft: () => (
             <TouchableOpacity 
-              onPress={() => {}} 
+              onPress={openDrawer} 
               style={{ marginLeft: 8, padding: 8 }}
               activeOpacity={0.7}
             >
