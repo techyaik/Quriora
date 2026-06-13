@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 
@@ -43,6 +45,8 @@ interface AudioContextType {
   toggleRepeatAyah: () => void;
   toggleRepeatSurah: () => void;
   changeReciter: (id: number) => Promise<void>;
+  lastError?: string | null;
+  clearError: () => void;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -60,6 +64,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [audioProgress, setAudioProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [reciters, setReciters] = useState<Reciter[]>([]);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   // Queue state for playing full surahs
   const [queue, setQueue] = useState<PlayQueueItem[]>([]);
@@ -71,6 +76,24 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const initAudio = async () => {
       try {
+        // Ensure axios baseURL is set when AudioProvider mounts. AuthProvider
+        // sets this in a useEffect as well but that can race with audio init
+        // leading to failed API calls (requests to '/api/...'). Set a
+        // sensible default here if not already configured.
+        const manifest = Constants.expoConfig || (Constants as any).manifest;
+        const hostUri = manifest?.hostUri;
+        const getBaseUrl = () => {
+          if (hostUri) {
+            const ip = hostUri.split(':')[0];
+            return `http://${ip}:3001`;
+          }
+          return Platform.OS === 'android' ? 'http://10.0.2.2:3001' : 'http://localhost:3001';
+        };
+
+        if (!axios.defaults.baseURL) {
+          axios.defaults.baseURL = getBaseUrl();
+        }
+
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
@@ -92,53 +115,75 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch (err) {
         console.error('Error initializing AudioContext:', err);
+        setLastError((err as any)?.message || String(err));
       }
     };
     initAudio();
 
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
+      (async () => {
+        try {
+          if (soundRef.current) {
+            await soundRef.current.unloadAsync();
+            soundRef.current = null;
+          }
+        } catch (e) {
+          console.error('Error unloading sound on cleanup:', e);
+        }
+      })();
     };
   }, []);
 
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     playbackStatusRef.current = status;
-    if (status.isLoaded) {
-      setIsPlaying(status.isPlaying);
-      setIsLoading(status.isBuffering);
-      if (status.durationMillis) {
-        setAudioProgress(status.positionMillis / status.durationMillis);
+    try {
+      if ((status as any).isLoaded) {
+        setIsPlaying((status as any).isPlaying);
+        setIsLoading((status as any).isBuffering);
+        if ((status as any).durationMillis) {
+          setAudioProgress((status as any).positionMillis / (status as any).durationMillis);
+        }
+
+        if ((status as any).didJustFinish) {
+          void handleAudioEnded();
+        }
+      } else {
+        if ((status as any).error) {
+          console.error(`AVPlayer error: ${(status as any).error}`);
+          setLastError((status as any).error?.message || String((status as any).error));
+        }
       }
-      
-      if (status.didJustFinish) {
-        handleAudioEnded();
-      }
-    } else {
-      if (status.error) {
-        console.error(`AVPlayer error: ${status.error}`);
-      }
+    } catch (e) {
+      console.error('Error processing playback status update:', e, status);
     }
   };
 
   const handleAudioEnded = () => {
     if (isRepeatAyah) {
       if (soundRef.current) {
-        soundRef.current.replayAsync().catch(err => console.error(err));
+        soundRef.current.replayAsync().catch(err => console.error('Error replaying ayah:', err));
       }
     } else {
-      nextAyah();
+      try {
+        void nextAyah();
+      } catch (e) {
+        console.error('Error advancing to next ayah:', e);
+      }
     }
   };
 
   const playSoundUrl = async (url: string) => {
     setIsLoading(true);
     try {
+      if (!url || typeof url !== 'string') {
+        throw new Error('Invalid audio URL');
+      }
+
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
+        soundRef.current = null;
       }
-      
+
       const { sound } = await Audio.Sound.createAsync(
         { uri: url },
         { shouldPlay: true, rate: playbackSpeed, volume: volume, shouldCorrectPitch: true },
@@ -149,6 +194,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (err) {
       console.error('Failed to create sound:', err);
       setIsPlaying(false);
+      setQueue([]);
+      setLastError((err as any)?.message || String(err));
     } finally {
       setIsLoading(false);
     }
@@ -159,9 +206,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoading(true);
     try {
       const res = await axios.get(`/api/audio/${surahId}/${ayahNumber}?reciterId=${activeReciterId}`);
-      if (res.data.success) {
+      if (res.data && res.data.success) {
         const { audioUrl, ayahId } = res.data.data;
-        
+
         setQueue([{ ayahId, ayahNumber, audioUrl, timestamps: null }]);
         setQueueIndex(0);
         setCurrentSurahId(surahId);
@@ -169,9 +216,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCurrentAyahNumber(ayahNumber);
 
         await playSoundUrl(audioUrl);
+      } else {
+        console.error('playAyah: unexpected response', res?.data);
+        setLastError('Unexpected API response while fetching ayah audio');
       }
     } catch (err) {
       console.error('Failed to play ayah:', err);
+      setLastError((err as any)?.message || String(err));
     } finally {
       setIsLoading(false);
     }
@@ -182,7 +233,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoading(true);
     try {
       const res = await axios.get(`/api/audio/surah/${surahId}?reciterId=${activeReciterId}`);
-      if (res.data.success) {
+      if (res.data && res.data.success) {
         const { queue: surahQueue } = res.data.data;
         setQueue(surahQueue);
         setCurrentSurahId(surahId);
@@ -196,9 +247,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCurrentAyahNumber(currentItem.ayahNumber);
 
         await playSoundUrl(currentItem.audioUrl);
+      } else {
+        console.error('playSurah: unexpected response', res?.data);
+        setLastError('Unexpected API response while fetching surah audio');
       }
     } catch (err) {
       console.error('Failed to play surah:', err);
+      setLastError((err as any)?.message || String(err));
     } finally {
       setIsLoading(false);
     }
@@ -299,8 +354,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } catch (e) {
       console.error(e);
+      setLastError((e as any)?.message || String(e));
     }
   };
+
+  const clearError = () => setLastError(null);
 
   return (
     <AudioContext.Provider value={{
@@ -327,7 +385,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setVolume,
       toggleRepeatAyah,
       toggleRepeatSurah,
-      changeReciter
+      changeReciter,
+      lastError,
+      clearError
     }}>
       {children}
     </AudioContext.Provider>

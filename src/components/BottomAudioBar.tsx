@@ -11,7 +11,7 @@ interface BottomAudioBarProps {
 }
 
 export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName }) => {
-  const { isPlaying, currentSurahId, currentAyahNumber, audioProgress, pause, resume, currentReciterId, reciters } = useAudioContext();
+  const { isPlaying, currentSurahId, currentAyahNumber, audioProgress, pause, resume, currentReciterId, reciters, lastError, clearError } = useAudioContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
   const insets = useSafeAreaInsets();
@@ -56,6 +56,13 @@ export const BottomAudioBar: React.FC<BottomAudioBarProps> = ({ activeRouteName 
       </View>
 
       <View style={styles.content}>
+        {lastError ? (
+          <View style={styles.errorRow}>
+            <Text numberOfLines={1} style={[styles.errorText, { color: colors.accent }]}>
+              Audio error: {lastError}
+            </Text>
+          </View>
+        ) : null}
         {/* Track Details */}
         <View style={styles.details}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -134,5 +141,13 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  errorRow: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+  },
+  errorText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
