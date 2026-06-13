@@ -1,31 +1,33 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { BottomAudioBar } from '@/src/components/BottomAudioBar';
-import { useThemeContext } from '@/src/context/ThemeContext';
-import { themeColors } from '@/src/styles/theme';
 
 export default function TabLayout() {
-  const { theme } = useThemeContext();
-  const colors = themeColors[theme];
-
   return (
     <NativeTabs
-      tintColor={colors.accent}
-      backgroundColor={colors.bgSecondary}
-      iconColor={{ default: colors.textTertiary, selected: colors.accent }}
-      labelStyle={{ default: { color: colors.textTertiary }, selected: { color: colors.accent } }}
+      tintColor="#087F7A"
+      backgroundColor="#F8F4EC"
+      iconColor={{ default: '#747673', selected: '#087F7A' }}
+      labelStyle={{
+        default: { color: '#747673', fontSize: 12 },
+        selected: { color: '#087F7A', fontSize: 12, fontWeight: '700' },
+      }}
       minimizeBehavior="never"
     >
       <NativeTabs.BottomAccessory>
         <TabAudioAccessory />
       </NativeTabs.BottomAccessory>
-      <NativeTabs.Trigger name="home" disableTransparentOnScrollEdge>
-        <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="quran" disableTransparentOnScrollEdge>
-        <NativeTabs.Trigger.Icon sf={{ default: 'book.closed', selected: 'book.closed.fill' }} md="menu_book" />
+        <NativeTabs.Trigger.Icon sf="book.closed" md="menu_book" />
         <NativeTabs.Trigger.Label>Quran</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="explore" disableTransparentOnScrollEdge>
+        <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
+        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="home" disableTransparentOnScrollEdge>
+        <NativeTabs.Trigger.Icon sf="house" md="home" />
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="listen" disableTransparentOnScrollEdge>
         <NativeTabs.Trigger.Icon sf="headphones" md="headphones" />
@@ -34,10 +36,6 @@ export default function TabLayout() {
       <NativeTabs.Trigger name="memorize" disableTransparentOnScrollEdge>
         <NativeTabs.Trigger.Icon sf="rosette" md="workspace_premium" />
         <NativeTabs.Trigger.Label>Memorize</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="explore" disableTransparentOnScrollEdge>
-        <NativeTabs.Trigger.Icon sf={{ default: 'safari', selected: 'safari.fill' }} md="explore" />
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

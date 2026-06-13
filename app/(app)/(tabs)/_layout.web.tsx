@@ -4,7 +4,10 @@ import { BookOpen, Compass, Headphones, Home, Medal } from 'lucide-react-native'
 import { useThemeContext } from '@/src/context/ThemeContext';
 import { themeColors } from '@/src/styles/theme';
 
-const TAB_BAR_HEIGHT = 64;
+const TAB_BAR_HEIGHT = 78;
+const ACTIVE_COLOR = '#087F7A';
+const INACTIVE_COLOR = '#747673';
+const BAR_BACKGROUND = '#F8F4EC';
 
 export default function WebTabLayout() {
   const { theme } = useThemeContext();
@@ -14,8 +17,8 @@ export default function WebTabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarActiveTintColor: ACTIVE_COLOR,
+        tabBarInactiveTintColor: INACTIVE_COLOR,
         sceneStyle: {
           paddingBottom: TAB_BAR_HEIGHT,
           backgroundColor: colors.bgPrimary,
@@ -26,16 +29,26 @@ export default function WebTabLayout() {
           right: 0,
           bottom: 0,
           height: TAB_BAR_HEIGHT,
-          backgroundColor: colors.bgSecondary,
-          borderTopColor: colors.border,
+          backgroundColor: BAR_BACKGROUND,
+          borderTopColor: '#DDD8CF',
+          borderTopWidth: 1,
+          paddingTop: 8,
+          paddingBottom: 8,
+        },
+        tabBarItemStyle: {
+          flex: 1,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
         },
       }}
     >
-      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color }) => <Home size={20} color={color} /> }} />
-      <Tabs.Screen name="quran" options={{ title: 'Quran', tabBarIcon: ({ color }) => <BookOpen size={20} color={color} /> }} />
-      <Tabs.Screen name="listen" options={{ title: 'Listen', tabBarIcon: ({ color }) => <Headphones size={20} color={color} /> }} />
-      <Tabs.Screen name="memorize" options={{ title: 'Memorize', tabBarIcon: ({ color }) => <Medal size={20} color={color} /> }} />
-      <Tabs.Screen name="explore" options={{ title: 'Explore', tabBarIcon: ({ color }) => <Compass size={20} color={color} /> }} />
+      <Tabs.Screen name="quran" options={{ title: 'Quran', tabBarIcon: ({ color }) => <BookOpen size={22} color={color} strokeWidth={1.7} /> }} />
+      <Tabs.Screen name="explore" options={{ title: 'Explore', tabBarIcon: ({ color }) => <Compass size={22} color={color} strokeWidth={1.7} /> }} />
+      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color }) => <Home size={23} color={color} strokeWidth={1.8} /> }} />
+      <Tabs.Screen name="listen" options={{ title: 'Listen', tabBarIcon: ({ color }) => <Headphones size={22} color={color} strokeWidth={1.7} /> }} />
+      <Tabs.Screen name="memorize" options={{ title: 'Memorize', tabBarIcon: ({ color }) => <Medal size={22} color={color} strokeWidth={1.7} /> }} />
     </Tabs>
   );
 }
