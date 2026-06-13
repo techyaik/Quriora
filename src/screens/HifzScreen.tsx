@@ -12,7 +12,7 @@ import {
   FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api } from '../services/api';
+import { fetchFallbackSurahs, fetchQuranSurah } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
@@ -89,10 +89,7 @@ export const HifzScreen: React.FC = () => {
     const initData = async () => {
       setLoading(true);
       try {
-        const res = await api.get('/api/surahs');
-        if (res.data.success) {
-          setSurahs(res.data.data);
-        }
+        setSurahs(await fetchFallbackSurahs());
 
         const storedHifz = await AsyncStorage.getItem('nurquran-hifz-items');
         if (storedHifz) {
@@ -134,9 +131,8 @@ export const HifzScreen: React.FC = () => {
   const startStudySession = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/surahs/${selectedSurahId}`);
-      if (res.data.success) {
-        const fullSurah = res.data.data;
+      const fullSurah = await fetchQuranSurah(selectedSurahId);
+      {
         const selectedVerses = fullSurah.ayahs.filter(
           (a: any) => a.ayahNumber >= startAyah && a.ayahNumber <= endAyah
         );

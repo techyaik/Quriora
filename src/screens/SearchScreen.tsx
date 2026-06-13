@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { api } from '../services/api';
+import { fetchFallbackSurahs, searchQuran } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
@@ -70,10 +70,7 @@ export const SearchScreen: React.FC = () => {
   useEffect(() => {
     const initSearch = async () => {
       try {
-        const res = await api.get('/api/surahs');
-        if (res.data.success) {
-          setSurahsList(res.data.data);
-        }
+        setSurahsList(await fetchFallbackSurahs());
 
         const storedHistory = await AsyncStorage.getItem('nurquran-search-history');
         if (storedHistory) {
@@ -104,17 +101,8 @@ export const SearchScreen: React.FC = () => {
     if (!searchVal.trim()) return;
     setLoading(true);
     try {
-      const res = await api.get('/api/search', {
-        params: {
-          q: searchVal.trim(),
-          lang: language,
-          surah: selectedSurah || undefined
-        }
-      });
-      if (res.data.success) {
-        setResults(res.data.data);
-        await saveToHistory(searchVal.trim());
-      }
+      setResults(await searchQuran(searchVal.trim(), language, selectedSurah));
+      await saveToHistory(searchVal.trim());
     } catch (err) {
       console.warn('Search request failed:', err);
     } finally {

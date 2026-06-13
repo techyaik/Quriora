@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api } from '../services/api';
+import { fetchQuranAyah } from '../services/quranFallback';
 import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
@@ -42,12 +43,8 @@ export const HomeScreen: React.FC = () => {
       try {
         const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86400000);
         const ayahId = (dayOfYear % 6236) + 1;
-        const ayahRes = await api.get(`/api/ayahs/${ayahId}`);
-        if (ayahRes.data.success) {
-          const ayah = ayahRes.data.data;
-          const surahRes = await api.get(`/api/surahs/${ayah.surahId}`);
-          setAyahOfDay({ ...ayah, surah: { nameEnglish: surahRes.data.data.nameEnglish } });
-        }
+        const ayah = await fetchQuranAyah(ayahId);
+        setAyahOfDay({ ...ayah, surah: { nameEnglish: ayah.surah.nameEnglish } });
         if (user) {
           const progressRes = await api.get('/api/user/progress');
           if (progressRes.data.success) setProgress(progressRes.data.data);

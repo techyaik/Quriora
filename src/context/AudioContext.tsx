@@ -1,8 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { api, getErrorMessage } from '../services/api';
-import { fallbackReciter, getFallbackSurahAudioUrl } from '../services/quranFallback';
+import { getErrorMessage } from '../services/api';
+import {
+  fallbackReciter,
+  fetchQuranAyahAudio,
+  fetchQuranSurahAudio,
+  getFallbackSurahAudioUrl,
+} from '../services/quranFallback';
 
 export interface Reciter {
   id: number;
@@ -92,12 +97,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (storedVolume) setVolumeState(parseFloat(storedVolume));
 
         // Fetch reciters
-        try {
-          const res = await api.get('/api/reciters', { timeoutMs: 4000 });
-          setReciters(res.data.success && res.data.data.length > 0 ? res.data.data : [fallbackReciter]);
-        } catch {
-          setReciters([fallbackReciter]);
-        }
+        setReciters([fallbackReciter]);
       } catch (err) {
         setLastError(getErrorMessage(err, 'Unable to initialize audio.'));
       }
@@ -162,21 +162,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const activeReciterId = reciterId || currentReciterId;
     setIsLoading(true);
     try {
-      const res = await api.get(`/api/audio/${surahId}/${ayahNumber}`, { params: { reciterId: activeReciterId } });
-      if (res.data && res.data.success) {
-        const { audioUrl, ayahId } = res.data.data;
+      const { audioUrl, ayahId } = await fetchQuranAyahAudio(surahId, ayahNumber);
 
-        setQueue([{ ayahId, ayahNumber, audioUrl, timestamps: null }]);
-        setQueueIndex(0);
-        setCurrentSurahId(surahId);
-        setCurrentAyahId(ayahId);
-        setCurrentAyahNumber(ayahNumber);
+      setQueue([{ ayahId, ayahNumber, audioUrl, timestamps: null }]);
+      setQueueIndex(0);
+      setCurrentSurahId(surahId);
+      setCurrentAyahId(ayahId);
+      setCurrentAyahNumber(ayahNumber);
 
-        await playSoundUrl(audioUrl, surahId, ayahNumber, activeReciterId);
-      } else {
-        console.warn('playAyah: unexpected response', res?.data);
-        setLastError('Unexpected API response while fetching ayah audio');
-      }
+      await playSoundUrl(audioUrl, surahId, ayahNumber, activeReciterId);
     } catch (err) {
       console.warn('Failed to play ayah:', err);
       setLastError(getErrorMessage(err, 'Unable to load ayah audio.'));
@@ -189,12 +183,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const activeReciterId = reciterId || currentReciterId;
     setIsLoading(true);
     try {
-      const res = await api.get(`/api/audio/surah/${surahId}`, {
-        params: { reciterId: activeReciterId },
-        timeoutMs: 4000,
-      });
-      if (res.data && res.data.success) {
-        const { queue: surahQueue } = res.data.data;
+      const surahQueue = await fetchQuranSurahAudio(surahId);
+      if (surahQueue.length > 0) {
         setQueue(surahQueue);
         setCurrentSurahId(surahId);
 
@@ -207,10 +197,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCurrentAyahNumber(currentItem.ayahNumber);
 
         await playSoundUrl(currentItem.audioUrl, surahId, currentItem.ayahNumber, activeReciterId);
-      } else {
-        console.warn('playSurah: unexpected response', res?.data);
-        setLastError('Unexpected API response while fetching surah audio');
-      }
+      } else throw new Error('Surah audio is unavailable.');
     } catch (err) {
       try {
         const audioUrl = getFallbackSurahAudioUrl(surahId);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { api } from '../services/api';
+import { fetchQuranAyah, fetchQuranCommentary } from '../services/quranFallback';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors } from '../styles/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,20 +49,12 @@ export const TafseerPanel: React.FC<TafseerPanelProps> = ({
       setError(null);
       try {
         // Fetch Tafseer
-        const res = await api.get(`/api/tafseer/${ayahId}`, {
-          params: { source, lang: language }
-        });
-        if (res.data.success) {
-          setTafseer(res.data.data);
-        }
+        setTafseer(await fetchQuranCommentary(ayahId));
 
         // Fetch Ayah details for word-by-word breakdown
-        const ayahRes = await api.get(`/api/ayahs/${ayahId}`);
-        if (ayahRes.data.success) {
-          const text = ayahRes.data.data.textUthmani;
-          setAyahText(text);
-          setWords(text.split(/\s+/).filter(Boolean));
-        }
+        const ayah = await fetchQuranAyah(ayahId);
+        setAyahText(ayah.textUthmani);
+        setWords(ayah.textUthmani.split(/\s+/).filter(Boolean));
       } catch (err) {
         console.warn('Failed to load Tafseer/Ayah details:', err);
         setError('Unable to load commentary. Please check your connection and try again.');

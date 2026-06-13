@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { api } from '../services/api';
 import { fetchFallbackSurahs } from '../services/quranFallback';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
@@ -34,17 +33,9 @@ export const SurahListScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/api/surahs', { timeoutMs: 4000 });
-      if (!res.data.success || !Array.isArray(res.data.data) || res.data.data.length !== 114) {
-        throw new Error('Invalid Surah response');
-      }
-      setSurahs(res.data.data);
+      setSurahs(await fetchFallbackSurahs());
     } catch {
-      try {
-        setSurahs(await fetchFallbackSurahs());
-      } catch {
-        setError('Unable to load the Quran index. Check your connection and try again.');
-      }
+      setError('Unable to load the Quran index. Check your connection and try again.');
     } finally {
       setLoading(false);
     }

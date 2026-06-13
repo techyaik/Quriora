@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api } from '../services/api';
+import { fetchQuranAyah } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
@@ -76,11 +77,10 @@ export const BookmarksScreen: React.FC = () => {
         const storedGuestBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
         const guestAyahIds: number[] = JSON.parse(storedGuestBookmarks || '[]');
         if (guestAyahIds.length > 0) {
-          const promises = guestAyahIds.map(id => api.get(`/api/ayahs/${id}`));
+          const promises = guestAyahIds.map(fetchQuranAyah);
           const responses = await Promise.all(promises);
           const guestBookmarksList: BookmarkItem[] = await Promise.all(
-            responses.map(async (res, idx) => {
-              const ayah = res.data.data;
+            responses.map(async (ayah, idx) => {
               const note = await AsyncStorage.getItem(`nurquran-guest-note-${ayah.id}`);
               return {
                 id: guestAyahIds[idx], // Mock ID
@@ -92,8 +92,8 @@ export const BookmarksScreen: React.FC = () => {
                   surahId: ayah.surahId,
                   textUthmani: ayah.textUthmani,
                   surah: {
-                    nameEnglish: `Surah ${ayah.surahId}`,
-                    nameArabic: ''
+                    nameEnglish: ayah.surah.nameEnglish,
+                    nameArabic: ayah.surah.nameArabic
                   },
                   translations: ayah.translations
                 }

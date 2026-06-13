@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, Activit
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '../services/api';
+import { fetchQuranSurah } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthContext } from '../context/AuthContext';
 import { useAudioContext } from '../context/AudioContext';
@@ -53,10 +54,7 @@ export const SurahScreen: React.FC = () => {
     const fetchSurah = async () => {
       setLoading(true);
       try {
-        const res = await api.get(`/api/surahs/${surahId}`);
-        if (res.data.success) {
-          setSurah(res.data.data);
-        }
+        setSurah(await fetchQuranSurah(surahId));
         if (user) {
           const bRes = await api.get('/api/user/bookmarks');
           if (bRes.data.success) {

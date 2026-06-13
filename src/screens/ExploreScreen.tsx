@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { api } from '../services/api';
+import { fetchFallbackSurahs, searchQuran } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
@@ -37,10 +37,7 @@ export const ExploreScreen: React.FC = () => {
   useEffect(() => {
     const loadExploreData = async () => {
       try {
-        const res = await api.get('/api/surahs');
-        if (res.data.success) {
-          setSurahs(res.data.data.slice(0, 30));
-        }
+        setSurahs((await fetchFallbackSurahs()).slice(0, 30));
 
         const storedHifz = await AsyncStorage.getItem('nurquran-hifz-items');
         if (storedHifz) {
@@ -63,12 +60,7 @@ export const ExploreScreen: React.FC = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await api.get('/api/search', {
-          params: { q: searchQuery.trim(), lang: 'en' }
-        });
-        if (res.data.success) {
-          setSearchResults(res.data.data.slice(0, 5));
-        }
+        setSearchResults((await searchQuran(searchQuery.trim(), 'en')).slice(0, 5));
       } catch (err) {
         console.warn('Explore query search failed:', err);
       } finally {
