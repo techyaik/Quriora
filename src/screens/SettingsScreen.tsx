@@ -8,6 +8,8 @@ import {
   TextInput,
   Modal,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,6 +20,7 @@ import { useThemeContext, Theme } from '../context/ThemeContext';
 import { useAudioContext } from '../context/AudioContext';
 import { useAuthContext } from '../context/AuthContext';
 import { themeColors, globalStyles } from '../styles/theme';
+import Constants from 'expo-constants';
 import {
   Sliders,
   User,
@@ -27,8 +30,18 @@ import {
   ChevronRight,
   Sparkles,
   X,
-  LogOut
+  LogOut,
+  HelpCircle,
+  Info,
+  Star,
+  Bug,
+  Mail,
+  Shield,
+  Book,
 } from 'lucide-react-native';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+const openURL = (url: string) => Linking.openURL(url).catch(() => {});
 
 export const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -119,9 +132,9 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const THEMES = [
-    { id: 'light' as Theme, label: 'Light', color: '#FAFAF8', accent: '#1A8A4A' },
-    { id: 'dark' as Theme, label: 'Dark', color: '#0F1117', accent: '#2ECC71' },
-    { id: 'sepia' as Theme, label: 'Sepia', color: '#F8F0E3', accent: '#5A6E32' },
+    { id: 'light' as Theme, label: 'Light', color: '#FAFAF8', accent: '#1A8A4A', textColor: '#1A1A1A' },
+    { id: 'dark' as Theme, label: 'Dark', color: '#0F1117', accent: '#2ECC71', textColor: '#FFFFFF' },
+    { id: 'sepia' as Theme, label: 'Sepia', color: '#F8F0E3', accent: '#5A6E32', textColor: '#3B2F20' },
   ] as const;
 
   const SPEED_OPTIONS = [
@@ -137,13 +150,12 @@ export const SettingsScreen: React.FC = () => {
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Header */}
-        <View style={styles.titleRow}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            Customize your Quriora experience
-          </Text>
+        {/* ── PAGE HEADER ── */}
+        <View style={styles.pageHeader}>
+          <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>Settings</Text>
+          <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>Appearance, audio, account and more</Text>
         </View>
+
 
         {/* ── APPEARANCE SECTION ── */}
         <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -169,15 +181,18 @@ export const SettingsScreen: React.FC = () => {
                       styles.themePill,
                       {
                         backgroundColor: t.color,
-                        borderColor: isActive ? colors.accent : colors.border,
-                        borderWidth: isActive ? 2 : 1
+                        borderColor: isActive ? t.accent : 'rgba(128,128,128,0.25)',
+                        borderWidth: isActive ? 2.5 : 1,
                       }
                     ]}
+                    activeOpacity={0.75}
                   >
                     <View style={[styles.themePillColor, { backgroundColor: t.accent }]} />
-                    <Text style={[styles.themePillLabel, { color: '#333' }]}>{t.label}</Text>
+                    <Text style={[styles.themePillLabel, { color: t.textColor }]}>{t.label}</Text>
                     {isActive ? (
-                      <Check size={12} color={colors.accent} style={styles.themeCheck} />
+                      <View style={[styles.themeActiveIndicator, { backgroundColor: t.accent }]}>
+                        <Check size={10} color="#fff" />
+                      </View>
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -407,7 +422,7 @@ export const SettingsScreen: React.FC = () => {
               <Text style={[styles.guestDesc, { color: colors.textSecondary }]}>
                 Sign in to sync your progress, bookmarks, and notes across all your mobile and web devices.
               </Text>
-              <TouchableOpacity onPress={handleEndSession} style={[styles.saveProfileBtn, { backgroundColor: colors.accent }]}>
+              <TouchableOpacity onPress={handleEndSession} style={[styles.saveProfileBtn, { backgroundColor: colors.accent, alignSelf: 'stretch', marginTop: 16 }]}>
                 <Text style={styles.saveProfileBtnText}>Go to Sign In</Text>
               </TouchableOpacity>
             </View>
@@ -439,6 +454,122 @@ export const SettingsScreen: React.FC = () => {
             <Share2 size={16} color={colors.accent} />
             <Text style={[styles.backupBtnText, { color: colors.textPrimary }]}>Export Bookmarks (JSON)</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* ── HELP & SUPPORT SECTION ── */}
+        <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
+            <HelpCircle size={18} color={colors.accent} />
+            <Text style={[styles.sectionTitleText, { color: colors.textPrimary }]}>Help & Support</Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => openURL('mailto:support@quriora.app?subject=Support%20Request')}
+            style={[styles.helpRow, { borderBottomColor: colors.border }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+              <Mail size={15} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Contact Support</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>support@quriora.app</Text>
+            </View>
+            <ChevronRight size={15} color={colors.textTertiary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openURL('mailto:support@quriora.app?subject=Feature%20Request')}
+            style={[styles.helpRow, { borderBottomColor: colors.border }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+              <Star size={15} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Request a Feature</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Share your ideas with us</Text>
+            </View>
+            <ChevronRight size={15} color={colors.textTertiary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openURL('mailto:support@quriora.app?subject=Bug%20Report')}
+            style={[styles.helpRow, { borderBottomWidth: 0 }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.helpIconWrap, { backgroundColor: 'rgba(231,76,60,0.1)' }]}>
+              <Bug size={15} color="#E74C3C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Report an Issue</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Help us improve Quriora</Text>
+            </View>
+            <ChevronRight size={15} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── ABOUT APP SECTION ── */}
+        <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
+            <Info size={18} color={colors.accent} />
+            <Text style={[styles.sectionTitleText, { color: colors.textPrimary }]}>About</Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => router.push('/explore/about')}
+            style={[styles.helpRow, { borderBottomColor: colors.border }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+              <Info size={15} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>About Quriora</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Mission, team, version info</Text>
+            </View>
+            <ChevronRight size={15} color={colors.textTertiary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/explore/attributions')}
+            style={[styles.helpRow, { borderBottomColor: colors.border }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+              <Book size={15} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Attributions</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Open source credits</Text>
+            </View>
+            <ChevronRight size={15} color={colors.textTertiary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openURL('https://quriora.app/privacy')}
+            style={[styles.helpRow, { borderBottomColor: colors.border }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+              <Shield size={15} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Privacy Policy</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>quriora.app/privacy</Text>
+            </View>
+            <ChevronRight size={15} color={colors.textTertiary} />
+          </TouchableOpacity>
+
+          <View style={[styles.helpRow, { borderBottomWidth: 0 }]}>
+            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+              <Info size={15} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>App Version</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>{APP_VERSION} · {Platform.OS === 'ios' ? 'iOS' : 'Android'}</Text>
+            </View>
+          </View>
         </View>
 
       </ScrollView>
@@ -537,6 +668,43 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
+  pageHeader: {
+    marginBottom: 20,
+    paddingLeft: 4,
+  },
+  pageTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  pageSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  helpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  helpIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  helpHint: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 1,
+  },
   titleRow: {
     marginBottom: 20,
     paddingLeft: 4,
@@ -591,27 +759,44 @@ const styles = StyleSheet.create({
   },
   themePill: {
     flex: 1,
-    height: 48,
-    borderRadius: 16,
+    height: 60,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
+    flexDirection: 'column',
+    gap: 5,
     position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    paddingVertical: 10,
   },
   themePillColor: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 1,
   },
   themePillLabel: {
     fontSize: 11,
     fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  themeActiveIndicator: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   themeCheck: {
     position: 'absolute',

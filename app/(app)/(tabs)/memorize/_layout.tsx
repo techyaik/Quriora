@@ -1,9 +1,10 @@
 import { Stack, useRouter } from 'expo-router';
 import { TouchableOpacity } from 'react-native';
-import { Menu, Settings } from 'lucide-react-native';
+import { Settings } from 'lucide-react-native';
 import { useThemeContext } from '@/src/context/ThemeContext';
 import { themeColors } from '@/src/styles/theme';
 import { useDrawerContext } from '@/src/context/DrawerContext';
+import { MenuIcon } from '@/src/components/MenuIcon';
 
 export default function MemorizeLayout() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function MemorizeLayout() {
               style={{ marginLeft: 8, padding: 8 }}
               activeOpacity={0.7}
             >
-              <Menu size={22} color={colors.textPrimary} />
+              <MenuIcon size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           ),
           headerRight: () => (

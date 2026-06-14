@@ -12,11 +12,24 @@ import {
   ScrollView,
   Share,
   Platform,
+  Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, ArrowRight, Share2, Heart } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Share2, Heart, Globe, Star, MessageCircle, Bug, Info, Book } from 'lucide-react-native';
 import { useThemeContext } from './ThemeContext';
 import { themeColors } from '../styles/theme';
+import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
+// App store URLs — update when live on stores
+const IOS_APP_URL = 'https://apps.apple.com/app/quriora/id123456789';
+const ANDROID_APP_URL = 'https://play.google.com/store/apps/details?id=com.aik7.quriora';
+const TERMS_URL = 'https://quriora.app/terms';
+const PRIVACY_URL = 'https://quriora.app/privacy';
+const HAJJ_URL = 'https://www.islamicfinder.org/hajj-guide/';
 
 interface DrawerContextType {
   isDrawerOpen: boolean;
@@ -39,17 +52,16 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [collectUsage, setCollectUsage] = useState(true);
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
+  const router = useRouter();
 
   const screenWidth = Dimensions.get('window').width;
-  const drawerWidth = screenWidth * 0.82; // covers ~82% of screen width
+  const drawerWidth = screenWidth * 0.82;
 
-  // Animation values
   const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (isDrawerOpen) {
-      // Open animation
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: 0,
@@ -63,7 +75,6 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }),
       ]).start();
     } else {
-      // Close animation is handled before setting isDrawerOpen to false
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: -drawerWidth,
@@ -79,9 +90,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [isDrawerOpen, drawerWidth]);
 
-  const openDrawer = () => {
-    setIsDrawerOpen(true);
-  };
+  const openDrawer = () => setIsDrawerOpen(true);
 
   const closeDrawer = () => {
     Animated.parallel([
@@ -95,29 +104,108 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         duration: 250,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      setIsDrawerOpen(false);
-    });
+    ]).start(() => setIsDrawerOpen(false));
+  };
+
+  const navigateAndClose = (path: string) => {
+    closeDrawer();
+    setTimeout(() => router.push(path as any), 300);
+  };
+
+  const openURL = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Cannot Open Link', 'Your device cannot open this URL.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to open link.');
+    }
   };
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: 'Explore Quran, Tafsir, and track your Hifz progress with Deen App! Download it now.',
+        message:
+          'Explore the Quran, track your Hifz progress, and listen to beautiful recitations with Quriora! ' +
+          (Platform.OS === 'ios' ? IOS_APP_URL : ANDROID_APP_URL),
+        title: 'Quriora — Quran App',
       });
-    } catch (error) {
-      console.warn('Share error:', error);
+    } catch {
+      // user cancelled share
     }
   };
 
-  const menuItems = [
-    { label: 'My Hajj' },
-    { label: 'About Us' },
-    { label: 'Request a Feature' },
-    { label: 'Report an Issue' },
-    { label: 'Rate the App' },
-    { label: 'Terms of Use & Privacy Policy' },
-    { label: 'Attributions' },
+  const handleRateApp = () => {
+    const url = Platform.OS === 'ios' ? IOS_APP_URL : ANDROID_APP_URL;
+    openURL(url);
+    closeDrawer();
+  };
+
+  const handleTerms = () => {
+    openURL(TERMS_URL);
+    closeDrawer();
+  };
+
+  const handleMyHajj = () => {
+    openURL(HAJJ_URL);
+    closeDrawer();
+  };
+
+  const handleRequestFeature = () => {
+    openURL('mailto:support@quriora.app?subject=Feature%20Request&body=Hi%20Quriora%20team%2C%0A%0AI%20would%20like%20to%20suggest%3A');
+    closeDrawer();
+  };
+
+  const handleReportIssue = () => {
+    openURL('mailto:support@quriora.app?subject=Bug%20Report&body=Hi%20Quriora%20team%2C%0A%0AI%20found%20an%20issue%3A');
+    closeDrawer();
+  };
+
+  interface MenuItem {
+    label: string;
+    icon: React.ReactNode;
+    onPress: () => void;
+  }
+
+  const menuItems: MenuItem[] = [
+    {
+      label: 'My Hajj Guide',
+      icon: <Globe size={17} color={colors.accent} />,
+      onPress: handleMyHajj,
+    },
+    {
+      label: 'About Quriora',
+      icon: <Info size={17} color={colors.accent} />,
+      onPress: () => navigateAndClose('/explore/about'),
+    },
+    {
+      label: 'Attributions',
+      icon: <Book size={17} color={colors.accent} />,
+      onPress: () => navigateAndClose('/explore/attributions'),
+    },
+    {
+      label: 'Request a Feature',
+      icon: <Star size={17} color={colors.accent} />,
+      onPress: handleRequestFeature,
+    },
+    {
+      label: 'Report an Issue',
+      icon: <Bug size={17} color={colors.accent} />,
+      onPress: handleReportIssue,
+    },
+    {
+      label: 'Rate Quriora',
+      icon: <Star size={17} color="#F4774A" />,
+      onPress: handleRateApp,
+    },
+    {
+      label: 'Terms & Privacy Policy',
+      icon: <MessageCircle size={17} color={colors.accent} />,
+      onPress: handleTerms,
+    },
   ];
 
   return (
@@ -148,11 +236,14 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             ]}
           >
             <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'bottom']}>
-              {/* Header: Back Arrow */}
+              {/* Header */}
               <View style={styles.header}>
                 <TouchableOpacity onPress={closeDrawer} style={styles.backButton} activeOpacity={0.7}>
                   <ArrowLeft size={24} color={colors.textPrimary} />
                 </TouchableOpacity>
+                <View style={styles.headerTitleWrap}>
+                  <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Menu</Text>
+                </View>
               </View>
 
               {/* Scrollable Content */}
@@ -166,22 +257,25 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   {menuItems.map((item, idx) => (
                     <TouchableOpacity
                       key={idx}
-                      onPress={() => {}}
+                      onPress={item.onPress}
                       style={[styles.menuItem, { borderBottomColor: colors.border }]}
                       activeOpacity={0.6}
                     >
+                      <View style={[styles.menuIconWrap, { backgroundColor: colors.accentLight }]}>
+                        {item.icon}
+                      </View>
                       <Text style={[styles.menuItemLabel, { color: colors.textPrimary }]}>
                         {item.label}
                       </Text>
-                      <ArrowRight size={16} color={colors.textSecondary} />
+                      <ArrowRight size={14} color={colors.textTertiary} />
                     </TouchableOpacity>
                   ))}
                 </View>
 
-                {/* Switch Item */}
+                {/* Analytics Toggle */}
                 <View style={[styles.switchContainer, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>
-                    Anonymously collect usage and crash reports
+                  <Text style={[styles.switchLabel, { color: colors.textSecondary }]}>
+                    Anonymously share usage & crash reports
                   </Text>
                   <Switch
                     value={collectUsage}
@@ -192,11 +286,10 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   />
                 </View>
 
-                {/* Accent Cards */}
+                {/* Action Cards */}
                 <View style={styles.cardsContainer}>
-                  {/* Share App */}
                   <TouchableOpacity
-                    onPress={handleShare}
+                    onPress={() => { handleShare(); closeDrawer(); }}
                     style={[
                       styles.actionCard,
                       {
@@ -207,16 +300,15 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.cardText, { color: colors.textPrimary }]}>
-                      Share Deen App
+                      Share Quriora
                     </Text>
                     <View style={[styles.cardIconWrap, { backgroundColor: colors.accentLight }]}>
                       <Share2 size={16} color={colors.accent} />
                     </View>
                   </TouchableOpacity>
 
-                  {/* Support App */}
                   <TouchableOpacity
-                    onPress={() => {}}
+                    onPress={() => openURL('mailto:support@quriora.app?subject=Support')}
                     style={[
                       styles.actionCard,
                       {
@@ -227,7 +319,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.cardText, { color: colors.textPrimary }]}>
-                      Support Deen
+                      Support Quriora
                     </Text>
                     <View style={[styles.cardIconWrap, { backgroundColor: colors.accentLight }]}>
                       <Heart size={16} color={colors.accent} fill={colors.accent} />
@@ -239,7 +331,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               {/* Version Footer */}
               <View style={styles.footer}>
                 <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-                  Deen V3.4.0 (81) | 019eb6
+                  Quriora v{APP_VERSION}
                 </Text>
               </View>
             </SafeAreaView>
@@ -249,6 +341,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     </DrawerContext.Provider>
   );
 };
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
@@ -266,8 +359,8 @@ const styles = StyleSheet.create({
     height: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
     elevation: 16,
   },
   safeArea: {
@@ -278,15 +371,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
   backButton: {
     padding: 8,
+  },
+  headerTitleWrap: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 24,
   },
   menuList: {
@@ -295,11 +397,19 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  menuIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuItemLabel: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -307,25 +417,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 16,
     marginBottom: 20,
   },
   switchLabel: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   cardsContainer: {
-    gap: 12,
+    gap: 10,
     marginBottom: 20,
   },
   actionCard: {
     borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -336,7 +446,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   cardIconWrap: {
@@ -350,7 +460,6 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderTopWidth: 0,
   },
   footerText: {
     fontSize: 11,
