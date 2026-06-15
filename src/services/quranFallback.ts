@@ -57,10 +57,23 @@ export const fallbackReciter = {
   audioBaseUrl: QURAN_AUDIO_URL,
 };
 
+let surahListCache: ReturnType<typeof mapSurah>[] | null = null;
+let surahListRequest: Promise<ReturnType<typeof mapSurah>[]> | null = null;
+
 export const fetchFallbackSurahs = async () => {
-  const surahs = await requestQuran<PublicSurah[]>('/surah');
-  if (!Array.isArray(surahs) || surahs.length !== 114) throw new Error('Invalid Surah list.');
-  return surahs.map(mapSurah);
+  if (surahListCache) return surahListCache;
+  if (surahListRequest) return surahListRequest;
+
+  surahListRequest = requestQuran<PublicSurah[]>('/surah')
+    .then(surahs => {
+      if (!Array.isArray(surahs) || surahs.length !== 114) throw new Error('Invalid Surah list.');
+      surahListCache = surahs.map(mapSurah);
+      return surahListCache;
+    })
+    .finally(() => {
+      surahListRequest = null;
+    });
+  return surahListRequest;
 };
 
 export const fetchQuranSurah = async (surahId: number) => {

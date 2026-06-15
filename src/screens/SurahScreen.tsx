@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  AppState,
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ViewToken,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '../services/api';
@@ -12,6 +24,7 @@ import { AyahCard } from '../components/AyahCard';
 import { TafseerPanel } from '../components/TafseerPanel';
 import { themeColors, globalStyles } from '../styles/theme';
 import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { useReadingGoal } from '../context/ReadingGoalContext';
 
 interface TranslationItem { id: number; language: string; translator: string; text: string; }
 interface AyahItem {
@@ -42,7 +55,8 @@ export const SurahScreen: React.FC = () => {
   const { fontSize, theme } = useThemeContext();
   const { isPlaying, currentAyahNumber, currentSurahId, playSurah, pause, resume } = useAudioContext();
   const colors = themeColors[theme];
-  const listRef = React.useRef<FlatList<AyahItem>>(null);
+  const listRef = useRef<FlatList<AyahItem>>(null);
+  const { markAyahRead, addReadingSeconds } = useReadingGoal();
 
   const [surah, setSurah] = useState<SurahData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +92,52 @@ export const SurahScreen: React.FC = () => {
     const index = surah.ayahs.findIndex(ayah => ayah.id === Number(params.highlight));
     if (index >= 0) requestAnimationFrame(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.2 }));
   }, [params.highlight, surah]);
+
+  useEffect(() => {
+    if (!surah) return;
+    let appIsActive = AppState.currentState === 'active';
+    const subscription = AppState.addEventListener('change', state => {
+      appIsActive = state === 'active';
+    });
+    const timer = setInterval(() => {
+      if (appIsActive) addReadingSeconds(10);
+    }, 10000);
+    const firstAyahTimer = setTimeout(() => {
+      const firstAyah = surah.ayahs[0];
+      if (firstAyah) markAyahRead(surah.id, firstAyah.ayahNumber, firstAyah.pageNumber, surah.ayahCount);
+    }, 1500);
+
+    return () => {
+      subscription.remove();
+      clearInterval(timer);
+      clearTimeout(firstAyahTimer);
+    };
+  }, [addReadingSeconds, markAyahRead, surah]);
+
+  const trackAyah = useCallback((ayah: AyahItem) => {
+    if (!surah) return;
+    markAyahRead(surah.id, ayah.ayahNumber, ayah.pageNumber, surah.ayahCount);
+  }, [markAyahRead, surah]);
+
+  const trackAyahRef = useRef(trackAyah);
+  trackAyahRef.current = trackAyah;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<ViewToken<AyahItem>> }) => {
+      viewableItems.forEach(token => {
+        if (token.isViewable && token.item) trackAyahRef.current(token.item);
+      });
+    }
+  ).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 65, minimumViewTime: 800 }).current;
+
+  const handleReadingScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!surah?.ayahs.length) return;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const scrollableHeight = Math.max(1, contentSize.height - layoutMeasurement.height);
+    const ratio = Math.max(0, Math.min(1, contentOffset.y / scrollableHeight));
+    const index = Math.min(surah.ayahs.length - 1, Math.round(ratio * (surah.ayahs.length - 1)));
+    trackAyah(surah.ayahs[index]);
+  }, [surah, trackAyah]);
 
   const isSurahPlaying = isPlaying && currentSurahId === surahId;
 
@@ -227,10 +287,18 @@ export const SurahScreen: React.FC = () => {
             renderItem={renderCardItem}
             contentContainerStyle={styles.cardListContent}
             showsVerticalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
             onScrollToIndexFailed={({ index }) => setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true }), 250)}
           />
         ) : readingMode === 'continuous' ? (
-          <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={styles.flowContent}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleReadingScroll}
+            scrollEventThrottle={500}
+          >
             <View style={[styles.flowCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               <Text style={[styles.flowArabicContainer, { lineHeight: 52 }]}>
                 {surah.ayahs.map(ayah => {
@@ -260,7 +328,13 @@ export const SurahScreen: React.FC = () => {
             </View>
           </ScrollView>
         ) : (
-          <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.flowContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={styles.flowContent}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleReadingScroll}
+            scrollEventThrottle={500}
+          >
             {Object.entries(mushafPages).map(([pageNo, pageAyahs]) => (
               <View key={pageNo} style={[styles.mushafPageCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={[styles.pageIndicator, { backgroundColor: colors.bgSecondary }]}>

@@ -1,362 +1,394 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import {
+  AlertCircle,
+  BookOpen,
+  Check,
+  Gauge,
+  Pause,
+  Play,
+  Repeat2,
+  SkipBack,
+  SkipForward,
+  Square,
+  Volume2,
+} from 'lucide-react-native';
+
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles } from '../styles/theme';
-import { Play, Pause, Headphones, Check, SkipBack, SkipForward, Square, AlertCircle } from 'lucide-react-native';
+import { fetchFallbackSurahs } from '../services/quranFallback';
+import { themeColors } from '../styles/theme';
 
-export const ListenScreen: React.FC = () => {
+interface SurahOption {
+  id: number;
+  nameArabic: string;
+  nameEnglish: string;
+  ayahCount: number;
+}
+
+interface TrackSliderProps {
+  value: number;
+  accessibilityLabel: string;
+  trackColor: string;
+  fillColor: string;
+  onChange: (value: number) => void;
+}
+
+const TrackSlider = ({ value, accessibilityLabel, trackColor, fillColor, onChange }: TrackSliderProps) => {
+  const [width, setWidth] = useState(1);
+  const update = (position: number) => onChange(Math.max(0, Math.min(1, position / width)));
+
+  return (
+    <Pressable
+      accessibilityRole="adjustable"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={event => {
+        const amount = event.nativeEvent.actionName === 'increment' ? 0.05 : -0.05;
+        onChange(Math.max(0, Math.min(1, value + amount)));
+      }}
+      onLayout={event => setWidth(event.nativeEvent.layout.width)}
+      onPress={event => update(event.nativeEvent.locationX)}
+      style={styles.sliderTouchArea}
+    >
+      <View style={[styles.sliderTrack, { backgroundColor: trackColor }]}>
+        <View style={[styles.sliderFill, { width: `${value * 100}%`, backgroundColor: fillColor }]} />
+        <View style={[styles.sliderThumb, { left: `${value * 100}%`, backgroundColor: fillColor }]} />
+      </View>
+    </Pressable>
+  );
+};
+
+const formatTime = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+};
+
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+
+export const ListenScreen = () => {
+  const { width } = useWindowDimensions();
+  const { theme } = useThemeContext();
+  const colors = themeColors[theme];
+  const compact = width < 360;
   const {
-    isPlaying, currentSurahId, currentAyahNumber, currentReciterId,
-    reciters, playSurah, pause, resume, stop, nextAyah, prevAyah, seekTo, changeReciter,
-    playbackSpeed, setSpeed, isRepeatSurah, toggleRepeatSurah, audioProgress,
-    isLoading, lastError, clearError,
+    isPlaying,
+    currentSurahId,
+    currentAyahNumber,
+    currentReciterId,
+    reciters,
+    playSurah,
+    pause,
+    resume,
+    stop,
+    nextAyah,
+    prevAyah,
+    seekTo,
+    changeReciter,
+    playbackSpeed,
+    setSpeed,
+    isRepeatSurah,
+    toggleRepeatSurah,
+    volume,
+    setVolume,
+    audioProgress,
+    currentTime,
+    duration,
+    isLoading,
+    lastError,
+    clearError,
   } = useAudioContext();
 
-  const [selectedSurahId, setSelectedSurahId] = useState(currentSurahId || 1);
-  const [progressWidth, setProgressWidth] = useState(1);
-  const colors = themeColors[useThemeContext().theme];
+  const [surahs, setSurahs] = useState<SurahOption[]>([]);
+  const [surahError, setSurahError] = useState('');
+  const [selectedSurahId, setSelectedSurahId] = useState(currentSurahId ?? 1);
 
-  const SPEEDS = [0.75, 1, 1.25, 1.5];
-  const POPULAR_SURAHS = [
-    { id: 1, name: 'Al-Fatiha', arabic: 'الفاتحة' },
-    { id: 2, name: 'Al-Baqarah', arabic: 'البقرة' },
-    { id: 18, name: 'Al-Kahf', arabic: 'الكهف' },
-    { id: 36, name: 'Ya-Sin', arabic: 'يس' },
-    { id: 55, name: 'Ar-Rahman', arabic: 'الرحمن' },
-    { id: 67, name: 'Al-Mulk', arabic: 'الملك' },
-    { id: 112, name: 'Al-Ikhlas', arabic: 'الإخلاص' },
-    { id: 114, name: 'An-Nas', arabic: 'الناس' },
-  ];
+  useEffect(() => {
+    let active = true;
+    fetchFallbackSurahs()
+      .then(result => {
+        if (active) setSurahs(result);
+      })
+      .catch(() => {
+        if (active) setSurahError('Surahs could not be loaded. Check your connection and try again.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const activeReciter = reciters.find(r => r.id === currentReciterId);
-  const isCurrentPlaying = isPlaying && currentSurahId === selectedSurahId;
+  useEffect(() => {
+    if (currentSurahId) setSelectedSurahId(currentSurahId);
+  }, [currentSurahId]);
+
+  const selectedSurah = useMemo(
+    () => surahs.find(surah => surah.id === selectedSurahId),
+    [selectedSurahId, surahs]
+  );
+  const activeReciter = reciters.find(reciter => reciter.id === currentReciterId);
+  const selectedIsCurrent = currentSurahId === selectedSurahId;
+  const selectedIsPlaying = selectedIsCurrent && isPlaying;
+  const displayedProgress = selectedIsCurrent ? audioProgress : 0;
+  const displayedCurrentTime = selectedIsCurrent ? currentTime : 0;
+  const displayedDuration = selectedIsCurrent ? duration : 0;
 
   const handlePlay = async () => {
-    if (isCurrentPlaying) {
-      await pause();
-      return;
-    }
-    if (currentSurahId === selectedSurahId) {
-      await resume();
-      return;
-    }
-    await playSurah(selectedSurahId, 1);
+    if (selectedIsPlaying) return pause();
+    if (selectedIsCurrent) return resume();
+    return playSurah(selectedSurahId, 1);
+  };
+
+  const cycleSpeed = async () => {
+    const index = SPEEDS.indexOf(playbackSpeed);
+    await setSpeed(SPEEDS[(index + 1) % SPEEDS.length]);
   };
 
   return (
-    <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Hero Player Card */}
-        <View style={[styles.playerCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <View style={[styles.artworkFrame, { backgroundColor: colors.accentLight, borderColor: colors.border }]}>
-            <Headphones size={42} color={colors.accent} />
-          </View>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}
+      style={{ backgroundColor: colors.bgSecondary }}
+      contentContainerStyle={[styles.content, compact && styles.contentCompact]}
+    >
+      <View style={styles.intro}>
+        <Text selectable style={[styles.eyebrow, { color: colors.accent }]}>QURAN RECITATION</Text>
+        <Text selectable style={[styles.pageTitle, { color: colors.textPrimary }]}>Listen and reflect</Text>
+        <Text selectable style={[styles.pageSubtitle, { color: colors.textSecondary }]}>Beautiful recitation with focused, uninterrupted playback.</Text>
+      </View>
 
-          <Text style={[styles.trackName, { color: colors.textPrimary }]}>
-            {POPULAR_SURAHS.find(s => s.id === selectedSurahId)?.name || `Surah ${selectedSurahId}`}
-          </Text>
-          <Text style={[styles.trackArtist, { color: colors.textSecondary }]}>
-            {activeReciter?.nameEnglish || 'Select a Reciter'}
-            {currentAyahNumber && currentSurahId === selectedSurahId && ` · Ayah ${currentAyahNumber}`}
-          </Text>
-
-          {/* Progress bar */}
-          {currentSurahId === selectedSurahId && (
-            <Pressable
-              accessibilityRole="adjustable"
-              accessibilityLabel="Audio progress"
-              onLayout={(event) => setProgressWidth(event.nativeEvent.layout.width)}
-              onPress={(event) => seekTo(Math.max(0, Math.min(1, event.nativeEvent.locationX / progressWidth)))}
-              style={[styles.progressBarTrack, { backgroundColor: colors.border }]}
-            >
-              <View style={[styles.progressBarFill, { width: `${audioProgress * 100}%`, backgroundColor: colors.accent }]} />
-            </Pressable>
-          )}
-
-          {/* Player controls */}
-          <View style={styles.playerControls}>
-            <TouchableOpacity onPress={prevAyah} disabled={!currentAyahNumber} style={styles.secondaryControlBtn}>
-              <SkipBack size={19} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handlePlay}
-              disabled={isLoading}
-              style={[styles.primaryPlayBtn, { backgroundColor: colors.accent }]}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : isCurrentPlaying ? (
-                <Pause size={20} color="#fff" />
-              ) : (
-                <Play size={20} color="#fff" style={{ marginLeft: 2 }} />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={stop} disabled={!currentSurahId} style={styles.secondaryControlBtn}>
-              <Square size={17} color={colors.textSecondary} fill={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={nextAyah} disabled={!currentAyahNumber} style={styles.secondaryControlBtn}>
-              <SkipForward size={19} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {lastError && (
-            <TouchableOpacity onPress={clearError} style={styles.audioError}>
-              <AlertCircle size={14} color="#C0392B" />
-              <Text style={styles.audioErrorText}>{lastError}</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Speed & loop selectors */}
-          <View style={styles.selectorsRow}>
-            <TouchableOpacity
-              onPress={async () => {
-                const idx = SPEEDS.indexOf(playbackSpeed);
-                await setSpeed(SPEEDS[(idx + 1) % SPEEDS.length]);
-              }}
-              style={[styles.smallSelectorBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
-            >
-              <Text style={[styles.smallSelectorText, { color: colors.textSecondary }]}>
-                {playbackSpeed}× speed
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={toggleRepeatSurah}
-              style={[
-                styles.smallSelectorBtn,
-                {
-                  backgroundColor: isRepeatSurah ? colors.accentLight : colors.bgSecondary,
-                  borderColor: isRepeatSurah ? colors.accent : colors.border
-                }
-              ]}
-            >
-              <Text style={[styles.smallSelectorText, { color: isRepeatSurah ? colors.accent : colors.textSecondary }]}>
-                Loop Surah
-              </Text>
-            </TouchableOpacity>
+      <View style={[styles.playerCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <View style={[styles.artwork, { backgroundColor: colors.accentLight, borderColor: colors.border }]}>
+          <View style={[styles.artworkInner, { borderColor: colors.accent }]}>
+            <BookOpen size={32} color={colors.accent} strokeWidth={1.7} />
+            <Text selectable style={[styles.artworkArabic, { color: colors.accent }]}>
+              {selectedSurah?.nameArabic ?? 'القرآن'}
+            </Text>
           </View>
         </View>
 
-        {/* Popular Recitations Grid */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Popular Recitations</Text>
-          <View style={styles.grid}>
-            {POPULAR_SURAHS.map(surah => {
-              const selected = selectedSurahId === surah.id;
-              return (
-                <TouchableOpacity
-                  key={surah.id}
-                  onPress={async () => {
-                    setSelectedSurahId(surah.id);
-                    await playSurah(surah.id, 1);
-                  }}
-                  style={[
-                    styles.gridItem,
-                    {
-                      backgroundColor: colors.bgCard,
-                      borderColor: selected ? colors.accent : colors.border,
-                      borderWidth: selected ? 1.5 : 1
-                    }
-                  ]}
-                >
-                  <Text style={[styles.gridName, { color: selected ? colors.accent : colors.textPrimary }]}>
-                    {surah.name}
-                  </Text>
-                  <Text style={styles.gridArabic}>{surah.arabic}</Text>
-                </TouchableOpacity>
-              );
-            })}
+        <Text selectable style={[styles.trackTitle, { color: colors.textPrimary }]}>
+          {selectedSurah?.nameEnglish ?? `Surah ${selectedSurahId}`}
+        </Text>
+        <Text selectable style={[styles.trackMeta, { color: colors.textSecondary }]}>
+          {activeReciter?.nameEnglish ?? 'Quran Reciter'}
+          {selectedIsCurrent && currentAyahNumber ? ` · Ayah ${currentAyahNumber}` : ''}
+        </Text>
+
+        <View style={styles.progressSection}>
+          <TrackSlider
+            value={displayedProgress}
+            accessibilityLabel="Recitation progress"
+            trackColor={colors.bgTertiary}
+            fillColor={colors.accent}
+            onChange={value => {
+              if (selectedIsCurrent) void seekTo(value);
+            }}
+          />
+          <View style={styles.timeRow}>
+            <Text style={[styles.timeText, { color: colors.textTertiary }]}>{formatTime(displayedCurrentTime)}</Text>
+            <Text style={[styles.timeText, { color: colors.textTertiary }]}>-{formatTime(Math.max(0, displayedDuration - displayedCurrentTime))}</Text>
           </View>
         </View>
 
-        {/* Reciter Selector */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Choose Reciter</Text>
-          <View style={styles.list}>
-            {reciters.map(r => (
+        <View style={[styles.transportRow, compact && styles.transportRowCompact]}>
+          <TouchableOpacity
+            accessibilityLabel="Repeat Surah"
+            onPress={toggleRepeatSurah}
+            style={[styles.utilityCircle, { backgroundColor: isRepeatSurah ? colors.accentLight : colors.bgTertiary }]}
+          >
+            <Repeat2 size={18} color={isRepeatSurah ? colors.accent : colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Previous Ayah" disabled={!selectedIsCurrent} onPress={prevAyah} style={styles.transportButton}>
+            <SkipBack size={23} color={selectedIsCurrent ? colors.textPrimary : colors.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={selectedIsPlaying ? 'Pause recitation' : 'Play recitation'}
+            disabled={isLoading}
+            onPress={handlePlay}
+            style={[styles.playButton, { backgroundColor: colors.accent }]}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : selectedIsPlaying ? (
+              <Pause size={27} color="#FFFFFF" fill="#FFFFFF" />
+            ) : (
+              <Play size={27} color="#FFFFFF" fill="#FFFFFF" style={styles.playIcon} />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Next Ayah" disabled={!selectedIsCurrent} onPress={nextAyah} style={styles.transportButton}>
+            <SkipForward size={23} color={selectedIsCurrent ? colors.textPrimary : colors.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Stop recitation" disabled={!selectedIsCurrent} onPress={stop} style={[styles.utilityCircle, { backgroundColor: colors.bgTertiary }]}>
+            <Square size={16} color={selectedIsCurrent ? colors.textSecondary : colors.textTertiary} fill={selectedIsCurrent ? colors.textSecondary : 'none'} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.audioTools, { borderTopColor: colors.border }]}>
+          <TouchableOpacity onPress={cycleSpeed} style={[styles.speedButton, { backgroundColor: colors.bgTertiary }]}>
+            <Gauge size={16} color={colors.accent} />
+            <Text style={[styles.speedText, { color: colors.textPrimary }]}>{playbackSpeed}x</Text>
+          </TouchableOpacity>
+          <View style={styles.volumeControl}>
+            <Volume2 size={17} color={colors.textSecondary} />
+            <View style={styles.volumeSlider}>
+              <TrackSlider
+                value={volume}
+                accessibilityLabel="Playback volume"
+                trackColor={colors.bgTertiary}
+                fillColor={colors.accent}
+                onChange={value => void setVolume(value)}
+              />
+            </View>
+          </View>
+        </View>
+
+        {lastError ? (
+          <TouchableOpacity onPress={clearError} style={[styles.errorCard, { backgroundColor: colors.goldLight }]}>
+            <AlertCircle size={15} color={colors.gold} />
+            <Text selectable style={[styles.errorText, { color: colors.textSecondary }]}>{lastError}</Text>
+            <Text style={[styles.dismissText, { color: colors.gold }]}>Dismiss</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text selectable style={[styles.sectionEyebrow, { color: colors.accent }]}>114 SURAHS</Text>
+          <Text selectable style={[styles.sectionTitle, { color: colors.textPrimary }]}>Choose a Surah</Text>
+        </View>
+      </View>
+
+      {surahError ? (
+        <View style={[styles.emptyCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <Text selectable style={[styles.emptyText, { color: colors.textSecondary }]}>{surahError}</Text>
+        </View>
+      ) : surahs.length === 0 ? (
+        <ActivityIndicator color={colors.accent} style={styles.surahLoader} />
+      ) : (
+        <FlatList
+          horizontal
+          data={surahs}
+          keyExtractor={item => String(item.id)}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.surahList}
+          renderItem={({ item }) => {
+            const selected = item.id === selectedSurahId;
+            return (
               <TouchableOpacity
-                key={r.id}
-                onPress={() => changeReciter(r.id)}
+                onPress={() => setSelectedSurahId(item.id)}
                 style={[
-                  styles.listItem,
+                  styles.surahCard,
                   {
-                    backgroundColor: colors.bgCard,
-                    borderColor: r.id === currentReciterId ? colors.accent : colors.border,
-                    borderWidth: r.id === currentReciterId ? 1.5 : 1
-                  }
+                    backgroundColor: selected ? colors.accent : colors.bgCard,
+                    borderColor: selected ? colors.accent : colors.border,
+                  },
                 ]}
               >
-                <View>
-                  <Text style={[styles.listName, { color: r.id === currentReciterId ? colors.accent : colors.textPrimary }]}>
-                    {r.nameEnglish}
-                  </Text>
-                  <Text style={[styles.listSub, { color: colors.textSecondary }]}>{r.style}</Text>
-                </View>
-                {r.id === currentReciterId && (
-                  <Check size={16} color={colors.accent} />
-                )}
+                <Text style={[styles.surahNumber, { color: selected ? '#FFFFFF' : colors.accent }]}>{item.id}</Text>
+                <Text selectable numberOfLines={1} style={[styles.surahName, { color: selected ? '#FFFFFF' : colors.textPrimary }]}>{item.nameEnglish}</Text>
+                <Text selectable style={[styles.surahArabic, { color: selected ? '#FFFFFF' : colors.textSecondary }]}>{item.nameArabic}</Text>
+                <Text style={[styles.surahMeta, { color: selected ? '#FFFFFF' : colors.textTertiary }]}>{item.ayahCount} Ayahs</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+            );
+          }}
+        />
+      )}
 
-      </ScrollView>
-    </SafeAreaView>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text selectable style={[styles.sectionEyebrow, { color: colors.accent }]}>VOICE</Text>
+          <Text selectable style={[styles.sectionTitle, { color: colors.textPrimary }]}>Choose a Reciter</Text>
+        </View>
+      </View>
+
+      <View style={styles.reciterList}>
+        {reciters.map(reciter => {
+          const selected = reciter.id === currentReciterId;
+          return (
+            <TouchableOpacity
+              key={reciter.id}
+              onPress={() => void changeReciter(reciter.id)}
+              style={[styles.reciterCard, { backgroundColor: colors.bgCard, borderColor: selected ? colors.accent : colors.border }]}
+            >
+              <View style={[styles.reciterAvatar, { backgroundColor: colors.accentLight }]}>
+                <Text style={[styles.reciterInitial, { color: colors.accent }]}>{reciter.nameEnglish.slice(0, 1)}</Text>
+              </View>
+              <View style={styles.reciterInfo}>
+                <Text selectable style={[styles.reciterName, { color: colors.textPrimary }]}>{reciter.nameEnglish}</Text>
+                <Text selectable style={[styles.reciterStyle, { color: colors.textSecondary }]}>{reciter.style}</Text>
+              </View>
+              {selected ? <Check size={18} color={colors.accent} /> : null}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  playerCard: {
-    alignItems: 'center',
-    padding: 22,
-    borderRadius: 24,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-    marginBottom: 22,
-  },
-  artworkFrame: {
-    width: 110,
-    height: 110,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  trackName: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  trackArtist: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  progressBarTrack: {
-    height: 4,
-    width: '90%',
-    borderRadius: 99,
-    marginTop: 16,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 99,
-  },
-  playerControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    marginTop: 18,
-  },
-  primaryPlayBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryControlBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  audioError: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#FDEDEC',
-  },
-  audioErrorText: {
-    color: '#922B21',
-    fontSize: 11,
-    flexShrink: 1,
-  },
-  selectorsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
-  },
-  smallSelectorBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 99,
-    borderWidth: 1,
-  },
-  smallSelectorText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-    paddingLeft: 4,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  gridItem: {
-    width: '48%',
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    gap: 6,
-    marginBottom: 8,
-  },
-  gridName: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  gridArabic: {
-    fontFamily: 'Amiri_700Bold',
-    fontSize: 14,
-    textAlign: 'right',
-    color: '#9C9690',
-  },
-  list: {
-    gap: 6,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  listName: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  listSub: {
-    fontSize: 10,
-    marginTop: 1,
-  },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 130, gap: 16 },
+  contentCompact: { paddingHorizontal: 12 },
+  intro: { gap: 4 },
+  eyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: 1.1 },
+  pageTitle: { fontSize: 26, lineHeight: 33, fontWeight: '800', letterSpacing: -0.5 },
+  pageSubtitle: { fontSize: 11, lineHeight: 17, maxWidth: 360 },
+  playerCard: { borderWidth: 1, borderRadius: 24, padding: 20, alignItems: 'center', boxShadow: '0 6px 22px rgba(0,0,0,0.06)' },
+  artwork: { width: 132, height: 132, borderRadius: 28, borderWidth: 1, padding: 10, alignItems: 'center', justifyContent: 'center' },
+  artworkInner: { width: '100%', height: '100%', borderRadius: 21, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  artworkArabic: { fontFamily: 'Amiri_700Bold', fontSize: 22, lineHeight: 31 },
+  trackTitle: { fontSize: 20, fontWeight: '800', marginTop: 16 },
+  trackMeta: { fontSize: 11, fontWeight: '500', marginTop: 4, textAlign: 'center' },
+  progressSection: { width: '100%', marginTop: 18 },
+  sliderTouchArea: { height: 24, justifyContent: 'center', width: '100%' },
+  sliderTrack: { height: 4, borderRadius: 99, overflow: 'visible' },
+  sliderFill: { height: '100%', borderRadius: 99 },
+  sliderThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, top: -4, marginLeft: -6 },
+  timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  timeText: { fontSize: 9, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  transportRow: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 14 },
+  transportRowCompact: { gap: 6 },
+  utilityCircle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  transportButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
+  playButton: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center', boxShadow: '0 7px 18px rgba(0,0,0,0.14)' },
+  playIcon: { marginLeft: 3 },
+  audioTools: { width: '100%', borderTopWidth: 1, marginTop: 18, paddingTop: 15, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  speedButton: { height: 38, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  speedText: { fontSize: 11, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  volumeControl: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  volumeSlider: { flex: 1 },
+  errorCard: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 13, padding: 11, marginTop: 14 },
+  errorText: { flex: 1, fontSize: 10, lineHeight: 15 },
+  dismissText: { fontSize: 9, fontWeight: '800' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 },
+  sectionEyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', marginTop: 3 },
+  surahList: { gap: 10, paddingBottom: 2 },
+  surahCard: { width: 134, minHeight: 132, borderWidth: 1, borderRadius: 18, padding: 13 },
+  surahNumber: { fontSize: 9, fontWeight: '800' },
+  surahName: { fontSize: 13, fontWeight: '800', marginTop: 10 },
+  surahArabic: { fontFamily: 'Amiri_700Bold', fontSize: 18, lineHeight: 27, marginTop: 3 },
+  surahMeta: { fontSize: 9, fontWeight: '600', marginTop: 'auto' },
+  surahLoader: { paddingVertical: 35 },
+  emptyCard: { minHeight: 100, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  emptyText: { fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  reciterList: { gap: 9 },
+  reciterCard: { minHeight: 68, borderRadius: 17, borderWidth: 1, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  reciterAvatar: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  reciterInitial: { fontSize: 17, fontWeight: '800' },
+  reciterInfo: { flex: 1 },
+  reciterName: { fontSize: 13, fontWeight: '800' },
+  reciterStyle: { fontSize: 10, marginTop: 3 },
 });

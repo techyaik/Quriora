@@ -1,8 +1,11 @@
 import { Tabs } from 'expo-router';
 import { BookOpen, Compass, Headphones, Home, Medal } from 'lucide-react-native';
+import { View } from 'react-native';
 
+import { BottomAudioBar } from '@/src/components/BottomAudioBar';
+import { useAudioContext } from '@/src/context/AudioContext';
 import { useThemeContext } from '@/src/context/ThemeContext';
-import { themeColors } from '@/src/styles/theme';
+import { AUDIO_BAR_HEIGHT, themeColors } from '@/src/styles/theme';
 
 const TAB_BAR_HEIGHT = 78;
 const ACTIVE_COLOR = '#087F7A';
@@ -11,16 +14,18 @@ const BAR_BACKGROUND = '#F8F4EC';
 
 export default function WebTabLayout() {
   const { theme } = useThemeContext();
+  const { currentSurahId } = useAudioContext();
   const colors = themeColors[theme];
 
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: ACTIVE_COLOR,
         tabBarInactiveTintColor: INACTIVE_COLOR,
         sceneStyle: {
-          paddingBottom: TAB_BAR_HEIGHT,
+          paddingBottom: TAB_BAR_HEIGHT + (currentSurahId ? AUDIO_BAR_HEIGHT : 0),
           backgroundColor: colors.bgPrimary,
         },
         tabBarStyle: {
@@ -50,5 +55,9 @@ export default function WebTabLayout() {
       <Tabs.Screen name="listen" options={{ title: 'Listen', tabBarIcon: ({ color }) => <Headphones size={22} color={color} strokeWidth={1.7} /> }} />
       <Tabs.Screen name="memorize" options={{ title: 'Memorize', tabBarIcon: ({ color }) => <Medal size={22} color={color} strokeWidth={1.7} /> }} />
     </Tabs>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: TAB_BAR_HEIGHT }}>
+        <BottomAudioBar />
+      </View>
+    </View>
   );
 }

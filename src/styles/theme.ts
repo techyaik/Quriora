@@ -53,7 +53,7 @@ export const themeColors = {
 
 export type ActiveTheme = keyof typeof themeColors;
 
-export const AUDIO_BAR_HEIGHT = 56;
+export const AUDIO_BAR_HEIGHT = 68;
 
 export const globalStyles = StyleSheet.create({
   safeArea: {

@@ -4,6 +4,7 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import { getErrorMessage } from '../services/api';
 import {
   fallbackReciter,
+  fetchFallbackSurahs,
   fetchQuranAyahAudio,
   fetchQuranSurahAudio,
   getFallbackSurahAudioUrl,
@@ -35,6 +36,9 @@ interface AudioContextType {
   isRepeatSurah: boolean;
   volume: number;
   audioProgress: number; // 0 to 1
+  currentTime: number;
+  duration: number;
+  currentSurahName: string | null;
   isLoading: boolean;
   reciters: Reciter[];
   playAyah: (surahId: number, ayahNumber: number, reciterId?: number) => Promise<void>;
@@ -70,6 +74,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoading, setIsLoading] = useState(false);
   const [reciters, setReciters] = useState<Reciter[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [surahNames, setSurahNames] = useState<Record<number, string>>({});
 
   // Queue state for playing full surahs
   const [queue, setQueue] = useState<PlayQueueItem[]>([]);
@@ -93,14 +98,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const storedVolume = await AsyncStorage.getItem('nurquran-volume');
 
         if (storedReciter) setCurrentReciterId(parseInt(storedReciter));
-        if (storedSpeed) setPlaybackSpeedState(parseFloat(storedSpeed));
-        if (storedVolume) setVolumeState(parseFloat(storedVolume));
+        if (storedSpeed) {
+          const speed = parseFloat(storedSpeed);
+          setPlaybackSpeedState(speed);
+          player.playbackRate = speed;
+        }
+        if (storedVolume) {
+          const storedLevel = parseFloat(storedVolume);
+          setVolumeState(storedLevel);
+          player.volume = storedLevel;
+        }
 
-        // Fetch reciters
         setReciters([fallbackReciter]);
       } catch (err) {
         setLastError(getErrorMessage(err, 'Unable to initialize audio.'));
       }
+
+      fetchFallbackSurahs()
+        .then(surahs => setSurahNames(Object.fromEntries(surahs.map(surah => [surah.id, surah.nameEnglish]))))
+        .catch(() => undefined);
     };
     initAudio();
 
@@ -117,6 +133,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [playerStatus.error]);
 
   const handleAudioEnded = () => {
+    if (process.env.EXPO_OS === 'web') {
+      setIsPlaying(false);
+      return;
+    }
     if (isRepeatAyah) {
       void player.seekTo(0).then(() => player.play()).catch(err => console.warn('Error replaying ayah:', err));
     } else {
@@ -141,7 +161,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       player.volume = volume;
       const reciter = reciters.find(item => item.id === reciterId);
       player.setActiveForLockScreen(true, {
-        title: `Surah ${surahId}, Ayah ${ayahNumber}`,
+        title: `${surahNames[surahId] ?? `Surah ${surahId}`} · Ayah ${ayahNumber}`,
         artist: reciter?.nameEnglish ?? 'Quriora',
         albumTitle: 'Quran Recitation',
       });
@@ -182,6 +202,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const playSurah = async (surahId: number, startAyahNumber: number = 1, reciterId?: number) => {
     const activeReciterId = reciterId || currentReciterId;
     setIsLoading(true);
+    if (process.env.EXPO_OS === 'web') {
+      const audioUrl = getFallbackSurahAudioUrl(surahId);
+      setQueue([{ ayahId: surahId, ayahNumber: startAyahNumber, audioUrl, timestamps: null }]);
+      setQueueIndex(0);
+      setCurrentSurahId(surahId);
+      setCurrentAyahId(surahId);
+      setCurrentAyahNumber(startAyahNumber);
+      await playSoundUrl(audioUrl, surahId, startAyahNumber, activeReciterId);
+      setIsLoading(false);
+      return;
+    }
     try {
       const surahQueue = await fetchQuranSurahAudio(surahId);
       if (surahQueue.length > 0) {
@@ -344,6 +375,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isRepeatSurah,
       volume,
       audioProgress,
+      currentTime: playerStatus.currentTime,
+      duration: playerStatus.duration,
+      currentSurahName: currentSurahId ? (surahNames[currentSurahId] ?? `Surah ${currentSurahId}`) : null,
       isLoading,
       reciters,
       playAyah,
