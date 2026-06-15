@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -27,7 +28,7 @@ import {
   type HadithRecord,
 } from '../services/hadith';
 import { searchQuran } from '../services/quranFallback';
-import { themeColors } from '../styles/theme';
+import { SCREEN_MAX_WIDTH, themeColors } from '../styles/theme';
 
 interface ExplorePalette {
   page: string;
@@ -41,12 +42,14 @@ interface ExplorePalette {
   accentSoft: string;
 }
 
+type QuranSearchResult = Awaited<ReturnType<typeof searchQuran>>[number];
+
 const getPalette = (theme: 'light' | 'dark' | 'sepia'): ExplorePalette => {
   const colors = themeColors[theme];
   return {
     page: colors.bgSecondary,
-    card: theme === 'dark' ? '#202631' : theme === 'sepia' ? '#FFF8EA' : '#FFFFFF',
-    cardMuted: theme === 'dark' ? '#252C38' : theme === 'sepia' ? '#F5EBD8' : '#F2F6F3',
+    card: colors.bgCard,
+    cardMuted: colors.bgTertiary,
     border: colors.border,
     text: colors.textPrimary,
     textMuted: colors.textSecondary,
@@ -62,8 +65,9 @@ export const ExploreScreen: React.FC = () => {
   const palette = getPalette(theme);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<QuranSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const collectionId: HadithCollectionId = 'bukhari';
   const [metadata, setMetadata] = useState<HadithMetadata | null>(null);
   const [chapterId, setChapterId] = useState(1);
@@ -76,16 +80,19 @@ export const ExploreScreen: React.FC = () => {
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
+      setSearchError('');
       return;
     }
 
     const timer = setTimeout(async () => {
       setSearching(true);
+      setSearchError('');
       try {
         setSearchResults((await searchQuran(searchQuery.trim(), 'en')).slice(0, 5));
       } catch (error) {
         console.warn('Explore Quran search failed:', error);
         setSearchResults([]);
+        setSearchError('Search is unavailable right now.');
       } finally {
         setSearching(false);
       }
@@ -171,37 +178,38 @@ export const ExploreScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.hero}>
-          <View style={styles.heroGlow} />
-          <Text style={styles.heroEyebrow}>DISCOVER AND REFLECT</Text>
-          <Text style={styles.heroTitle}>Explore</Text>
-          <Text style={styles.heroSubtitle}>
+        <View style={[styles.hero, { backgroundColor: palette.accent }]}>
+          <View style={[styles.heroGlow, { backgroundColor: '#FFFFFF', opacity: 0.15 }]} />
+          <Text style={[styles.heroEyebrow, { color: 'rgba(255, 255, 255, 0.75)' }]}>DISCOVER AND REFLECT</Text>
+          <Text style={[styles.heroSubtitle, { color: 'rgba(255, 255, 255, 0.85)' }]}>
             Search the Quran, study authentic Hadith, and continue your learning journey.
           </Text>
 
-          <View style={styles.searchContainer}>
-            <Search size={18} color="#789089" />
+          <View style={[styles.searchContainer, { backgroundColor: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.15)' }]}>
+            <Search size={18} color="rgba(255, 255, 255, 0.7)" />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search Surahs, topics, Tafsir..."
-              placeholderTextColor="#789089"
-              style={styles.searchInput}
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
+              style={[styles.searchInput, { color: '#FFFFFF' }]}
               returnKeyType="search"
             />
             {searchQuery ? (
               <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                <X size={16} color="#789089" />
+                <X size={16} color="rgba(255, 255, 255, 0.7)" />
               </TouchableOpacity>
             ) : null}
           </View>
         </View>
 
         <View style={styles.body}>
-          {(searchResults.length > 0 || searching) && (
+          {(searchResults.length > 0 || searching || Boolean(searchError)) && (
             <View style={[styles.resultsCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
               {searching ? (
                 <ActivityIndicator size="small" color={palette.accent} style={styles.resultLoader} />
+              ) : searchError ? (
+                <Text selectable style={[styles.searchError, { color: palette.textMuted }]}>{searchError}</Text>
               ) : (
                 searchResults.map(item => (
                   <TouchableOpacity
@@ -228,7 +236,7 @@ export const ExploreScreen: React.FC = () => {
                       style={[styles.resultTranslation, { color: palette.textMuted }]}
                       numberOfLines={2}
                     >
-                      {item.translations?.find((translation: any) => translation.language === 'en')?.text}
+                      {item.translations?.find(translation => translation.language === 'en')?.text}
                     </Text>
                   </TouchableOpacity>
                 ))
@@ -274,12 +282,16 @@ export const ExploreScreen: React.FC = () => {
           </View>
 
           {metadata && (
-            <ScrollView
+            <FlatList
               horizontal
+              data={metadata.chapters}
+              keyExtractor={chapter => String(chapter.id)}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chapterList}
-            >
-              {metadata.chapters.map(chapter => {
+              initialNumToRender={12}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+              renderItem={({ item: chapter }) => {
                 const selected = chapter.id === chapterId;
                 return (
                   <TouchableOpacity
@@ -304,8 +316,8 @@ export const ExploreScreen: React.FC = () => {
                     </Text>
                   </TouchableOpacity>
                 );
-              })}
-            </ScrollView>
+              }}
+            />
           )}
 
           <View style={[styles.hadithCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
@@ -401,9 +413,10 @@ const styles = StyleSheet.create({
   searchContainer: { height: 48, backgroundColor: '#162820', borderWidth: 1, borderColor: '#1E3530', borderRadius: 16, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10, marginTop: 18 },
   searchInput: { flex: 1, color: '#FFFFFF', fontSize: 13, paddingVertical: 0 },
   clearButton: { padding: 5 },
-  body: { paddingHorizontal: 16, paddingTop: 19, gap: 14 },
+  body: { width: '100%', maxWidth: SCREEN_MAX_WIDTH, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 19, gap: 14 },
   resultsCard: { borderWidth: 1, borderRadius: 18, padding: 7, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' },
   resultLoader: { padding: 18 },
+  searchError: { padding: 18, fontSize: 11, lineHeight: 17, textAlign: 'center' },
   resultItem: { padding: 12, borderBottomWidth: 1 },
   resultMeta: { fontSize: 10, fontWeight: '800', marginBottom: 4 },
   resultArabic: { fontFamily: 'Amiri_400Regular', fontSize: 18, lineHeight: 28, textAlign: 'right', writingDirection: 'rtl' },

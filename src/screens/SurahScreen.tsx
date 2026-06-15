@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -22,7 +22,7 @@ import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
 import { AyahCard } from '../components/AyahCard';
 import { TafseerPanel } from '../components/TafseerPanel';
-import { themeColors, globalStyles } from '../styles/theme';
+import { SCREEN_MAX_WIDTH, themeColors, globalStyles } from '../styles/theme';
 import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useReadingGoal } from '../context/ReadingGoalContext';
 
@@ -60,13 +60,14 @@ export const SurahScreen: React.FC = () => {
 
   const [surah, setSurah] = useState<SurahData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [readingMode, setReadingMode] = useState<ReadingMode>('card');
   const [activeTafseer, setActiveTafseer] = useState<{ ayahId: number; ayahNumber: number } | null>(null);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
 
-  useEffect(() => {
-    const fetchSurah = async () => {
+  const loadSurah = useCallback(async () => {
       setLoading(true);
+      setLoadError('');
       try {
         setSurah(await fetchQuranSurah(surahId));
         if (user) {
@@ -80,12 +81,15 @@ export const SurahScreen: React.FC = () => {
         }
       } catch (err) {
         console.warn(err);
+        setLoadError('This Surah could not be loaded. Check your connection and try again.');
       } finally {
         setLoading(false);
       }
-    };
-    fetchSurah();
   }, [isGuest, surahId, user]);
+
+  useEffect(() => {
+    void loadSurah();
+  }, [loadSurah]);
 
   useEffect(() => {
     if (!surah || !params.highlight) return;
@@ -151,30 +155,55 @@ export const SurahScreen: React.FC = () => {
     }
   };
 
-  const handleBookmark = async (ayahId: number) => {
-    const isBookmarked = bookmarks.includes(ayahId);
+  const handlePlay = useCallback((ayahNumber: number) => {
+    if (surah) {
+      playSurah(surah.id, ayahNumber);
+    }
+  }, [surah, playSurah]);
+
+  const handleBookmark = useCallback(async (ayahId: number) => {
     try {
       if (!user) {
-        const next = isBookmarked ? bookmarks.filter(id => id !== ayahId) : [...bookmarks, ayahId];
-        setBookmarks(next);
-        await AsyncStorage.setItem('nurquran-guest-bookmarks', JSON.stringify(next));
+        setBookmarks(prev => {
+          const isBookmarked = prev.includes(ayahId);
+          const next = isBookmarked ? prev.filter(id => id !== ayahId) : [...prev, ayahId];
+          AsyncStorage.setItem('nurquran-guest-bookmarks', JSON.stringify(next)).catch(console.warn);
+          return next;
+        });
         return;
       }
+      
+      let isBookmarked = false;
+      setBookmarks(prev => {
+        isBookmarked = prev.includes(ayahId);
+        return prev;
+      });
+
       if (isBookmarked) {
         const bRes = await api.get('/api/user/bookmarks');
         const record = bRes.data.data.find((b: any) => b.ayahId === ayahId);
         if (record) {
           await api.delete(`/api/user/bookmarks/${record.id}`);
         }
-        setBookmarks(bookmarks.filter(id => id !== ayahId));
+        setBookmarks(prev => prev.filter(id => id !== ayahId));
       } else {
         await api.post('/api/user/bookmarks', { ayahId });
-        setBookmarks([...bookmarks, ayahId]);
+        setBookmarks(prev => [...prev, ayahId]);
       }
     } catch (err) {
       console.warn(err);
     }
-  };
+  }, [user]);
+
+  const handleOpenTafseer = useCallback((ayahId: number, ayahNumber: number) => {
+    setActiveTafseer({ ayahId, ayahNumber });
+  }, []);
+
+  const mushafPages = useMemo(() => (surah?.ayahs ?? []).reduce((acc: Record<number, AyahItem[]>, ayah) => {
+    if (!acc[ayah.pageNumber]) acc[ayah.pageNumber] = [];
+    acc[ayah.pageNumber].push(ayah);
+    return acc;
+  }, {}), [surah]);
 
   if (loading) {
     return (
@@ -186,31 +215,31 @@ export const SurahScreen: React.FC = () => {
 
   if (!surah) {
     return (
-      <View style={[styles.loadingCenter, { backgroundColor: colors.bgPrimary }]}>
-        <Text style={{ color: colors.textSecondary }}>Surah not found.</Text>
+      <View style={[styles.loadingCenter, { backgroundColor: colors.bgPrimary }]}> 
+        <Text style={[styles.loadErrorText, { color: colors.textSecondary }]}>
+          {loadError || 'Surah not found.'}
+        </Text>
+        {loadError ? (
+          <TouchableOpacity onPress={loadSurah} style={[styles.retryButton, { backgroundColor: colors.accent }]}> 
+            <Text style={styles.retryButtonText}>Try again</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     );
   }
 
-  // Mushaf page compilation
-  const mushafPages = surah.ayahs.reduce((acc: Record<number, AyahItem[]>, ayah) => {
-    if (!acc[ayah.pageNumber]) acc[ayah.pageNumber] = [];
-    acc[ayah.pageNumber].push(ayah);
-    return acc;
-  }, {});
-
-  const renderCardItem = ({ item }: { item: AyahItem }) => (
+  const renderCardItem = useCallback(({ item }: { item: AyahItem }) => (
     <AyahCard
       ayah={item}
       surahId={surah.id}
       surahNameEnglish={surah.nameEnglish}
       isPlaying={isPlaying && currentSurahId === surah.id && currentAyahNumber === item.ayahNumber}
       isBookmarked={bookmarks.includes(item.id)}
-      onPlay={() => playSurah(surah.id, item.ayahNumber)}
-      onBookmark={() => handleBookmark(item.id)}
-      onOpenTafseer={() => setActiveTafseer({ ayahId: item.id, ayahNumber: item.ayahNumber })}
+      onPlay={handlePlay}
+      onBookmark={handleBookmark}
+      onOpenTafseer={handleOpenTafseer}
     />
-  );
+  ), [surah, isPlaying, currentSurahId, currentAyahNumber, bookmarks, handlePlay, handleBookmark, handleOpenTafseer]);
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
@@ -290,6 +319,10 @@ export const SurahScreen: React.FC = () => {
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             onScrollToIndexFailed={({ index }) => setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true }), 250)}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={7}
+            removeClippedSubviews={process.env.EXPO_OS !== 'web'}
           />
         ) : readingMode === 'continuous' ? (
           <ScrollView
@@ -390,6 +423,26 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  loadErrorText: {
+    maxWidth: 360,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  retryButton: {
+    minHeight: 44,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   topBar: {
     flexDirection: 'row',
@@ -414,6 +467,9 @@ const styles = StyleSheet.create({
   headerDetails: {
     padding: 16,
     alignItems: 'center',
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
   },
   navigationRow: {
     flexDirection: 'row',
@@ -423,7 +479,10 @@ const styles = StyleSheet.create({
   },
   arrowBtn: {
     borderWidth: 1,
-    padding: 4,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 99,
   },
   metaIndexText: {
@@ -455,7 +514,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 16,
-    height: 36,
+    minHeight: 44,
     borderRadius: 99,
   },
   playButtonText: {
@@ -471,7 +530,9 @@ const styles = StyleSheet.create({
   },
   modeTab: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 9,
   },
   modeTabText: {
@@ -484,10 +545,16 @@ const styles = StyleSheet.create({
   cardListContent: {
     paddingHorizontal: 16,
     paddingBottom: 100,
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
   },
   flowContent: {
     paddingHorizontal: 16,
     paddingBottom: 100,
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
   },
   flowCard: {
     padding: 18,

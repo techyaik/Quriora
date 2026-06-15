@@ -59,6 +59,10 @@ export const fallbackReciter = {
 
 let surahListCache: ReturnType<typeof mapSurah>[] | null = null;
 let surahListRequest: Promise<ReturnType<typeof mapSurah>[]> | null = null;
+const surahCache = new Map<number, Awaited<ReturnType<typeof loadQuranSurah>>>();
+const surahRequests = new Map<number, Promise<Awaited<ReturnType<typeof loadQuranSurah>>>>();
+const ayahCache = new Map<number, Awaited<ReturnType<typeof loadQuranAyah>>>();
+const ayahRequests = new Map<number, Promise<Awaited<ReturnType<typeof loadQuranAyah>>>>();
 
 export const fetchFallbackSurahs = async () => {
   if (surahListCache) return surahListCache;
@@ -76,7 +80,7 @@ export const fetchFallbackSurahs = async () => {
   return surahListRequest;
 };
 
-export const fetchQuranSurah = async (surahId: number) => {
+const loadQuranSurah = async (surahId: number) => {
   const editions = await requestQuran<Array<PublicSurah & { ayahs: PublicAyah[] }>>(
     `/surah/${surahId}/editions/quran-uthmani,en.sahih`
   );
@@ -104,7 +108,26 @@ export const fetchQuranSurah = async (surahId: number) => {
   };
 };
 
-export const fetchQuranAyah = async (ayahId: number) => {
+export const fetchQuranSurah = async (surahId: number) => {
+  const cached = surahCache.get(surahId);
+  if (cached) return cached;
+
+  const pending = surahRequests.get(surahId);
+  if (pending) return pending;
+
+  const request = loadQuranSurah(surahId)
+    .then(surah => {
+      surahCache.set(surahId, surah);
+      return surah;
+    })
+    .finally(() => {
+      surahRequests.delete(surahId);
+    });
+  surahRequests.set(surahId, request);
+  return request;
+};
+
+const loadQuranAyah = async (ayahId: number) => {
   const editions = await requestQuran<PublicAyah[]>(`/ayah/${ayahId}/editions/quran-uthmani,en.sahih`);
   const arabic = editions[0];
   const english = editions[1];
@@ -122,6 +145,25 @@ export const fetchQuranAyah = async (ayahId: number) => {
     surah: { nameEnglish: arabic.surah.englishName, nameArabic: arabic.surah.name },
     translations: [{ language: 'en', translator: 'Saheeh International', text: english?.text ?? '' }],
   };
+};
+
+export const fetchQuranAyah = async (ayahId: number) => {
+  const cached = ayahCache.get(ayahId);
+  if (cached) return cached;
+
+  const pending = ayahRequests.get(ayahId);
+  if (pending) return pending;
+
+  const request = loadQuranAyah(ayahId)
+    .then(ayah => {
+      ayahCache.set(ayahId, ayah);
+      return ayah;
+    })
+    .finally(() => {
+      ayahRequests.delete(ayahId);
+    });
+  ayahRequests.set(ayahId, request);
+  return request;
 };
 
 const searchEdition: Record<string, string> = {

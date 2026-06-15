@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext, Theme } from '../context/ThemeContext';
 import { useAudioContext } from '../context/AudioContext';
 import { useAuthContext } from '../context/AuthContext';
-import { themeColors, globalStyles } from '../styles/theme';
+import { SCREEN_MAX_WIDTH, themeColors, globalStyles } from '../styles/theme';
 import Constants from 'expo-constants';
 import {
   Sliders,
@@ -132,7 +132,7 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const THEMES = [
-    { id: 'light' as Theme, label: 'Light', color: '#FAFAF8', accent: '#1A8A4A', textColor: '#1A1A1A' },
+    { id: 'light' as Theme, label: 'Light', color: '#F7F4EF', accent: '#1A7A5E', textColor: '#1A2421' },
     { id: 'dark' as Theme, label: 'Dark', color: '#0F1117', accent: '#2ECC71', textColor: '#FFFFFF' },
     { id: 'sepia' as Theme, label: 'Sepia', color: '#F8F0E3', accent: '#5A6E32', textColor: '#3B2F20' },
   ] as const;
@@ -152,7 +152,6 @@ export const SettingsScreen: React.FC = () => {
         
         {/* ── PAGE HEADER ── */}
         <View style={styles.pageHeader}>
-          <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>Settings</Text>
           <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>Appearance, audio, account and more</Text>
         </View>
 
@@ -667,6 +666,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 100,
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
   },
   pageHeader: {
     marginBottom: 20,
@@ -683,6 +685,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   helpRow: {
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
@@ -724,11 +727,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     padding: 18,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.04)',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -766,22 +765,14 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 5,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
     paddingVertical: 10,
   },
   themePillColor: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 1,
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
   },
   themePillLabel: {
     fontSize: 11,
@@ -819,9 +810,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fontSizeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -868,17 +859,13 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 1,
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.20)',
   },
   switchThumbActive: {
     alignSelf: 'flex-end',
   },
   customDropdownTrigger: {
-    height: 42,
+    minHeight: 44,
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: 'row',
@@ -896,9 +883,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   volumeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1004,7 +991,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   backupBtn: {
-    height: 42,
+    minHeight: 44,
     borderRadius: 14,
     borderWidth: 1.5,
     flexDirection: 'row',
@@ -1026,6 +1013,9 @@ const styles = StyleSheet.create({
   modalCard: {
     borderRadius: 24,
     maxHeight: '60%',
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     overflow: 'hidden',
   },
   modalHeader: {
@@ -1040,10 +1030,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   modalClose: {
-    padding: 4,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalListItem: {
-    padding: 16,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
     borderBottomWidth: 1,
   },
   modalListItemText: {

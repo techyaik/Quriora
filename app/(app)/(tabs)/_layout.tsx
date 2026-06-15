@@ -4,36 +4,18 @@ import { useThemeContext } from '@/src/context/ThemeContext';
 import { themeColors } from '@/src/styles/theme';
 import { BottomAudioBar } from '@/src/components/BottomAudioBar';
 
-const THEME_TAB_COLORS = {
-  light: {
-    background: '#F8F4EC',
-    tint: '#1A8A4A',
-    inactive: '#747673',
-  },
-  dark: {
-    background: '#181C26',
-    tint: '#2ECC71',
-    inactive: '#6B6560',
-  },
-  sepia: {
-    background: '#EFE3CC',
-    tint: '#5A6E32',
-    inactive: '#8A7A60',
-  },
-} as const;
-
 export default function TabLayout() {
   const { theme } = useThemeContext();
-  const tabColors = THEME_TAB_COLORS[theme];
+  const colors = themeColors[theme];
 
   return (
     <NativeTabs
-      tintColor={tabColors.tint}
-      backgroundColor={tabColors.background}
-      iconColor={{ default: tabColors.inactive, selected: tabColors.tint }}
+      tintColor={colors.accent}
+      backgroundColor={colors.bgSecondary}
+      iconColor={{ default: colors.textSecondary, selected: colors.accent }}
       labelStyle={{
-        default: { color: tabColors.inactive, fontSize: 12 },
-        selected: { color: tabColors.tint, fontSize: 12, fontWeight: '700' },
+        default: { color: colors.textSecondary, fontSize: 12 },
+        selected: { color: colors.accent, fontSize: 12, fontWeight: '700' },
       }}
       minimizeBehavior="never"
     >
@@ -54,12 +36,12 @@ export default function TabLayout() {
       <NativeTabs.Trigger name="home" disableTransparentOnScrollEdge>
         <NativeTabs.Trigger.Icon
           src={{
-            default: <Home size={30} color={tabColors.inactive} />,
-            selected: <Home size={37} color={tabColors.tint} />,
+            default: <Home size={30} color={colors.textSecondary} />,
+            selected: <Home size={37} color={colors.accent} />,
           }}
         />
         <NativeTabs.Trigger.Label
-          selectedStyle={{ fontSize: 13, fontWeight: '800', color: tabColors.tint }}
+          selectedStyle={{ fontSize: 13, fontWeight: '800', color: colors.accent }}
         >
           Home
         </NativeTabs.Trigger.Label>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { memo, useEffect, useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -56,6 +56,7 @@ export const BookmarksScreen: React.FC = () => {
 
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [groupBySurah, setGroupBySurah] = useState(false);
 
@@ -66,6 +67,7 @@ export const BookmarksScreen: React.FC = () => {
   // Fetch bookmarks
   const fetchBookmarks = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       if (user) {
         const res = await api.get('/api/user/bookmarks');
@@ -77,11 +79,16 @@ export const BookmarksScreen: React.FC = () => {
         const storedGuestBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
         const guestAyahIds: number[] = JSON.parse(storedGuestBookmarks || '[]');
         if (guestAyahIds.length > 0) {
-          const promises = guestAyahIds.map(fetchQuranAyah);
-          const responses = await Promise.all(promises);
-          const guestBookmarksList: BookmarkItem[] = await Promise.all(
-            responses.map(async (ayah, idx) => {
-              const note = await AsyncStorage.getItem(`nurquran-guest-note-${ayah.id}`);
+          const responses = [];
+          for (let index = 0; index < guestAyahIds.length; index += 8) {
+            const batch = guestAyahIds.slice(index, index + 8);
+            responses.push(...await Promise.all(batch.map(fetchQuranAyah)));
+          }
+          const noteEntries = await AsyncStorage.multiGet(
+            responses.map(ayah => `nurquran-guest-note-${ayah.id}`)
+          );
+          const guestBookmarksList: BookmarkItem[] = responses.map((ayah, idx) => {
+              const note = noteEntries[idx]?.[1];
               return {
                 id: guestAyahIds[idx], // Mock ID
                 ayahId: ayah.id,
@@ -98,8 +105,7 @@ export const BookmarksScreen: React.FC = () => {
                   translations: ayah.translations
                 }
               };
-            })
-          );
+            });
           setBookmarks(guestBookmarksList);
         } else {
           setBookmarks([]);
@@ -107,6 +113,7 @@ export const BookmarksScreen: React.FC = () => {
       }
     } catch (err) {
       console.warn('Failed to load bookmarks:', err);
+      setLoadError('Bookmarks could not be loaded. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -116,7 +123,7 @@ export const BookmarksScreen: React.FC = () => {
     fetchBookmarks();
   }, [user]);
 
-  const handleDeleteBookmark = async (bookmarkId: number, ayahId: number) => {
+  const handleDeleteBookmark = useCallback(async (bookmarkId: number, ayahId: number) => {
     try {
       if (user) {
         await api.delete(`/api/user/bookmarks/${bookmarkId}`);
@@ -127,33 +134,41 @@ export const BookmarksScreen: React.FC = () => {
         await AsyncStorage.setItem('nurquran-guest-bookmarks', JSON.stringify(guestBookmarks));
         await AsyncStorage.removeItem(`nurquran-guest-note-${ayahId}`);
       }
-      setBookmarks(bookmarks.filter(b => b.id !== bookmarkId));
+      setBookmarks(current => current.filter(b => b.id !== bookmarkId));
       Alert.alert('Success', 'Bookmark removed.');
     } catch (err) {
       console.warn('Failed to delete bookmark:', err);
     }
-  };
+  }, [user]);
 
-  const handleStartEdit = (item: BookmarkItem) => {
+  const handleStartEdit = useCallback((item: BookmarkItem) => {
     setEditingId(item.id);
     setEditNoteText(item.note || '');
-  };
+  }, []);
 
-  const handleSaveNote = async (item: BookmarkItem) => {
+  const handleSaveNote = useCallback(async (item: BookmarkItem) => {
     try {
       if (user) {
         await api.put(`/api/user/bookmarks/${item.id}`, { note: editNoteText });
-        setBookmarks(bookmarks.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
+        setBookmarks(current => current.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
       } else {
         await AsyncStorage.setItem(`nurquran-guest-note-${item.ayahId}`, editNoteText);
-        setBookmarks(bookmarks.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
+        setBookmarks(current => current.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
       }
       setEditingId(null);
       Alert.alert('Saved', 'Personal note updated successfully.');
     } catch (err) {
       console.warn('Failed to save note:', err);
     }
-  };
+  }, [user, editNoteText]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingId(null);
+  }, []);
+
+  const handleOpen = useCallback((surahId: number, ayahId: number) => {
+    router.push({ pathname: '/quran/surah/[id]', params: { id: surahId, highlight: ayahId } });
+  }, [router]);
 
   // Share formatted bookmarks text
   const handleExportText = async () => {
@@ -181,22 +196,23 @@ export const BookmarksScreen: React.FC = () => {
     }
   };
 
-  const filteredBookmarks = bookmarks.filter(b => {
-    const textMatch = b.ayah.textUthmani.includes(searchQuery);
-    const trans = b.ayah.translations.find(t => t.language === 'en')?.text || '';
-    const transMatch = trans.toLowerCase().includes(searchQuery.toLowerCase());
-    const noteMatch = (b.note || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const surahMatch = b.ayah.surah.nameEnglish.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredBookmarks = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+    return bookmarks.filter(b => {
+      const trans = b.ayah.translations.find(t => t.language === 'en')?.text || '';
+      return b.ayah.textUthmani.includes(searchQuery.trim()) ||
+        trans.toLocaleLowerCase().includes(normalizedQuery) ||
+        (b.note || '').toLocaleLowerCase().includes(normalizedQuery) ||
+        b.ayah.surah.nameEnglish.toLocaleLowerCase().includes(normalizedQuery);
+    });
+  }, [bookmarks, searchQuery]);
 
-    return textMatch || transMatch || noteMatch || surahMatch;
-  });
-
-  const groupedBookmarks = filteredBookmarks.reduce((acc: Record<string, BookmarkItem[]>, item) => {
+  const groupedBookmarks = useMemo(() => filteredBookmarks.reduce((acc: Record<string, BookmarkItem[]>, item) => {
     const key = item.ayah.surah.nameEnglish || `Surah ${item.ayah.surahId}`;
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;
-  }, {});
+  }, {}), [filteredBookmarks]);
 
   if (loading) {
     return (
@@ -273,7 +289,16 @@ export const BookmarksScreen: React.FC = () => {
         )}
 
         {/* Main List */}
-        {bookmarks.length === 0 ? (
+        {loadError ? (
+          <View style={[styles.emptyContainer, { borderColor: colors.border }]}> 
+            <AlertCircle size={36} color={colors.textTertiary} style={{ opacity: 0.6, marginBottom: 10 }} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Bookmarks unavailable</Text>
+            <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>{loadError}</Text>
+            <TouchableOpacity onPress={fetchBookmarks} style={[styles.retryBtn, { backgroundColor: colors.accent }]}> 
+              <Text style={styles.retryText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : bookmarks.length === 0 ? (
           <View style={[styles.emptyContainer, { borderColor: colors.border }]}>
             <Bookmark size={40} color={colors.textTertiary} style={{ opacity: 0.5, marginBottom: 10 }} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No bookmarks yet</Text>
@@ -300,9 +325,9 @@ export const BookmarksScreen: React.FC = () => {
                       setEditNoteText={setEditNoteText}
                       onStartEdit={handleStartEdit}
                       onSaveNote={handleSaveNote}
-                      onCancelEdit={() => setEditingId(null)}
-                      onDelete={() => handleDeleteBookmark(b.id, b.ayahId)}
-                      onOpen={() => router.push({ pathname: '/quran/surah/[id]', params: { id: b.ayah.surahId, highlight: b.ayahId } })}
+                      onCancelEdit={handleCancelEdit}
+                      onDelete={handleDeleteBookmark}
+                      onOpen={handleOpen}
                     />
                   ))}
                 </View>
@@ -318,9 +343,9 @@ export const BookmarksScreen: React.FC = () => {
                   setEditNoteText={setEditNoteText}
                   onStartEdit={handleStartEdit}
                   onSaveNote={handleSaveNote}
-                  onCancelEdit={() => setEditingId(null)}
-                  onDelete={() => handleDeleteBookmark(b.id, b.ayahId)}
-                  onOpen={() => router.push({ pathname: '/quran/surah/[id]', params: { id: b.ayah.surahId, highlight: b.ayahId } })}
+                  onCancelEdit={handleCancelEdit}
+                  onDelete={handleDeleteBookmark}
+                  onOpen={handleOpen}
                 />
               ))
             )}
@@ -342,11 +367,11 @@ interface BookmarkCardProps {
   onStartEdit: (item: BookmarkItem) => void;
   onSaveNote: (item: BookmarkItem) => void;
   onCancelEdit: () => void;
-  onDelete: () => void;
-  onOpen: () => void;
+  onDelete: (bookmarkId: number, ayahId: number) => void;
+  onOpen: (surahId: number, ayahId: number) => void;
 }
 
-const BookmarkCard: React.FC<BookmarkCardProps> = ({
+const BookmarkCard = memo(function BookmarkCard({
   item,
   colors,
   editingId,
@@ -357,7 +382,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
   onCancelEdit,
   onDelete,
   onOpen,
-}) => {
+}: BookmarkCardProps) {
   const trans = item.ayah.translations.find(t => t.language === 'en')?.text || '';
 
   return (
@@ -404,7 +429,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
         ) : (
           <View style={styles.noteViewerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.noteLabel}>ANNOTATION NOTE</Text>
+              <Text style={[styles.noteLabel, { color: colors.textTertiary }]}>ANNOTATION NOTE</Text>
               <Text style={[styles.noteText, { color: colors.textPrimary }]}>
                 {item.note || 'No note added. Tap edit to write an annotation.'}
               </Text>
@@ -419,7 +444,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
       {/* Action Row */}
       <View style={[styles.cardActionsRow, { borderTopColor: colors.border }]}>
         <TouchableOpacity
-          onPress={onOpen}
+          onPress={() => onOpen(item.ayah.surahId, item.ayahId)}
           style={[styles.cardActionBtn, { backgroundColor: colors.accentLight }]}
         >
           <ExternalLink size={12} color={colors.accent} />
@@ -427,7 +452,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={onDelete}
+          onPress={() => onDelete(item.id, item.ayahId)}
           style={[styles.cardDeleteBtn, { borderColor: colors.border }]}
         >
           <Trash2 size={12} color="#E74C3C" />
@@ -437,7 +462,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
 
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   loadingCenter: {
@@ -546,6 +571,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 16,
   },
+  retryBtn: {
+    minHeight: 44,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -564,11 +602,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1.5,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -626,8 +660,8 @@ const styles = StyleSheet.create({
   noteEditBtn: {
     borderWidth: 1,
     borderRadius: 12,
-    width: 24,
-    height: 24,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.4)',
@@ -643,16 +677,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.5)',
   },
   noteSaveBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   noteCancelBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -678,8 +712,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    height: 32,
-    borderRadius: 16,
+    minHeight: 44,
+    borderRadius: 22,
     gap: 4,
   },
   cardActionBtnText: {
@@ -690,8 +724,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    height: 32,
-    borderRadius: 16,
+    minHeight: 44,
+    borderRadius: 22,
     borderWidth: 1,
     gap: 4,
     marginLeft: 'auto',

@@ -14,16 +14,18 @@ interface AyahItem {
 interface AyahCardProps {
   ayah: AyahItem; surahId: number; surahNameEnglish: string;
   isPlaying: boolean; isBookmarked: boolean;
-  onPlay: () => void; onBookmark: () => void; onOpenTafseer: () => void;
+  onPlay: (ayahNumber: number) => void;
+  onBookmark: (ayahId: number) => void;
+  onOpenTafseer: (ayahId: number, ayahNumber: number) => void;
 }
 
 const toArabicDigits = (num: number) =>
   num.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
 
-export const AyahCard: React.FC<AyahCardProps> = ({
+export const AyahCard = React.memo(({
   ayah, surahId, surahNameEnglish, isPlaying, isBookmarked,
   onPlay, onBookmark, onOpenTafseer
-}) => {
+}: AyahCardProps) => {
   const { fontSize, showTajweed, showTranslation, theme } = useThemeContext();
   const colors = themeColors[theme];
   const [copied, setCopied] = useState(false);
@@ -107,7 +109,7 @@ export const AyahCard: React.FC<AyahCardProps> = ({
       <View style={[styles.actionBar, { borderTopColor: colors.border }]}>
         {/* Play */}
         <TouchableOpacity
-          onPress={onPlay}
+          onPress={() => onPlay(ayah.ayahNumber)}
           style={[
             styles.actionBtn,
             {
@@ -117,9 +119,9 @@ export const AyahCard: React.FC<AyahCardProps> = ({
           ]}
         >
           {isPlaying ? (
-            <Pause size={10} color="#fff" />
+            <Pause size={14} color="#fff" />
           ) : (
-            <Play size={10} color={colors.textSecondary} />
+            <Play size={14} color={colors.textSecondary} />
           )}
           <Text style={[styles.actionLabel, { color: isPlaying ? '#fff' : colors.textSecondary }]}>
             {isPlaying ? 'Playing' : 'Play'}
@@ -128,7 +130,7 @@ export const AyahCard: React.FC<AyahCardProps> = ({
 
         {/* Bookmark */}
         <TouchableOpacity
-          onPress={onBookmark}
+          onPress={() => onBookmark(ayah.id)}
           style={[
             styles.actionBtn,
             {
@@ -137,7 +139,7 @@ export const AyahCard: React.FC<AyahCardProps> = ({
             }
           ]}
         >
-          <Bookmark size={10} color={isBookmarked ? colors.gold : colors.textTertiary} fill={isBookmarked ? colors.gold : 'none'} />
+          <Bookmark size={14} color={isBookmarked ? colors.gold : colors.textTertiary} fill={isBookmarked ? colors.gold : 'none'} />
           <Text style={[styles.actionLabel, { color: isBookmarked ? colors.gold : colors.textSecondary }]}>
             {isBookmarked ? 'Saved' : 'Bookmark'}
           </Text>
@@ -145,10 +147,10 @@ export const AyahCard: React.FC<AyahCardProps> = ({
 
         {/* Tafseer */}
         <TouchableOpacity
-          onPress={onOpenTafseer}
+          onPress={() => onOpenTafseer(ayah.id, ayah.ayahNumber)}
           style={[styles.actionBtn, { borderColor: colors.border }]}
         >
-          <BookOpen size={10} color={colors.textTertiary} />
+          <BookOpen size={14} color={colors.textTertiary} />
           <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>Tafseer</Text>
         </TouchableOpacity>
 
@@ -157,7 +159,7 @@ export const AyahCard: React.FC<AyahCardProps> = ({
           onPress={handleCopy}
           style={[styles.actionBtn, { borderColor: colors.border }]}
         >
-          <Copy size={10} color={colors.textTertiary} />
+          <Copy size={14} color={colors.textTertiary} />
           <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
             {copied ? 'Copied' : 'Copy'}
           </Text>
@@ -168,13 +170,13 @@ export const AyahCard: React.FC<AyahCardProps> = ({
           onPress={handleShare}
           style={[styles.actionBtn, { borderColor: colors.border }]}
         >
-          <Share2 size={10} color={colors.textTertiary} />
+          <Share2 size={14} color={colors.textTertiary} />
           <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>Share</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   card: {
@@ -182,18 +184,10 @@ const styles = StyleSheet.create({
     padding: 18,
     marginVertical: 6,
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
   },
   playingShadow: {
-    shadowColor: '#1A8A4A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 3,
+    boxShadow: '0 4px 12px rgba(26, 138, 74, 0.12)',
   },
   metadataRow: {
     flexDirection: 'row',
@@ -269,7 +263,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: 99,
     borderWidth: 1,
   },

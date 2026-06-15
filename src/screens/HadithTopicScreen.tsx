@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useThemeContext } from '../context/ThemeContext';
 import { fetchHadithChapter, type HadithRecord } from '../services/hadith';
-import { themeColors } from '../styles/theme';
+import { SCREEN_MAX_WIDTH, themeColors } from '../styles/theme';
 
 export const HadithTopicScreen = () => {
   const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
@@ -21,7 +21,7 @@ export const HadithTopicScreen = () => {
   const colors = useMemo(
     () => ({
       page: themePalette.bgSecondary,
-      card: theme === 'dark' ? '#202631' : theme === 'sepia' ? '#FFF8EA' : '#FFFFFF',
+      card: themePalette.bgCard,
       border: themePalette.border,
       text: themePalette.textPrimary,
       muted: themePalette.textSecondary,
@@ -119,7 +119,7 @@ export const HadithTopicScreen = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112 },
+  content: { width: '100%', maxWidth: SCREEN_MAX_WIDTH, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112 },
   heading: { marginBottom: 16 },
   eyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: 1.05 },
   title: { fontSize: 23, lineHeight: 30, fontWeight: '800', letterSpacing: -0.35, marginTop: 4 },
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   separator: { height: 11 },
   state: { minHeight: 280, alignItems: 'center', justifyContent: 'center', gap: 13, paddingHorizontal: 26 },
   stateText: { fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  retryButton: { borderRadius: 99, paddingHorizontal: 18, paddingVertical: 9 },
+  retryButton: { minHeight: 44, borderRadius: 99, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
   retryText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
   hadithCard: { borderWidth: 1, borderRadius: 18, padding: 17, boxShadow: '0 3px 12px rgba(0,0,0,0.045)' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

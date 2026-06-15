@@ -16,7 +16,7 @@ import { fetchFallbackSurahs, fetchQuranSurah } from '../services/quranFallback'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles } from '../styles/theme';
+import { SCREEN_MAX_WIDTH, themeColors, globalStyles } from '../styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Award,
@@ -275,7 +275,7 @@ export const HifzScreen: React.FC = () => {
         
         {/* Header Hero Banner */}
         <LinearGradient
-          colors={['#1A8A4A', '#277852', '#165a3b']}
+          colors={[colors.accent, colors.accent]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.heroCard, { backgroundColor: colors.accent }]}
@@ -621,16 +621,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 100,
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
   },
   heroCard: {
     borderRadius: 24,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
+    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.10)',
   },
   heroHeaderRow: {
     flexDirection: 'row',
@@ -677,11 +676,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)',
     overflow: 'hidden',
   },
   panelHeader: {
@@ -713,7 +708,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   pickerTrigger: {
-    height: 40,
+    minHeight: 44,
     borderRadius: 20,
     borderWidth: 1,
     flexDirection: 'row',
@@ -740,11 +735,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.10)',
   },
   actionBtnText: {
     color: '#fff',
@@ -828,11 +819,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
   },
   paneContent: {
     width: '100%',
@@ -970,8 +957,8 @@ const styles = StyleSheet.create({
   },
   sm2Button: {
     flex: 1,
-    height: 36,
-    borderRadius: 18,
+    minHeight: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -1011,12 +998,11 @@ const styles = StyleSheet.create({
   modalCard: {
     borderRadius: 24,
     maxHeight: '80%',
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
+    boxShadow: '0 10px 20px rgba(0, 0, 0, 0.20)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1030,10 +1016,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   modalClose: {
-    padding: 4,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalListItem: {
-    padding: 16,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
     borderBottomWidth: 1,
   },
   modalListItemText: {

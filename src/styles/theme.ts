@@ -2,20 +2,20 @@ import { StyleSheet } from 'react-native';
 
 export const themeColors = {
   light: {
-    bgPrimary: '#FAFAF8',
-    bgSecondary: '#F3EFE8',
-    bgTertiary: '#EDE8DF',
-    bgCard: 'rgba(255, 255, 255, 0.72)',
-    textPrimary: '#1A1A1A',
-    textSecondary: '#6B6560',
-    textTertiary: '#9C9690',
-    accent: '#1A8A4A',
-    accentLight: '#E8F5EE',
-    accentGlow: 'rgba(26, 138, 74, 0.15)',
-    gold: '#C9A84C',
-    goldLight: 'rgba(201, 168, 76, 0.12)',
-    border: 'rgba(0, 0, 0, 0.08)',
-    borderCard: 'rgba(255, 255, 255, 0.6)',
+    bgPrimary: '#F7F4EF',
+    bgSecondary: '#E8EDE9',
+    bgTertiary: '#F1ECE2',
+    bgCard: '#FFFFFF',
+    textPrimary: '#1A2421',
+    textSecondary: '#5A6B66',
+    textTertiary: '#9BAAA5',
+    accent: '#1A7A5E',
+    accentLight: '#E8F5F1',
+    accentGlow: 'rgba(26, 122, 94, 0.15)',
+    gold: '#C9963A',
+    goldLight: '#FBF3E4',
+    border: '#E8EDE9',
+    borderCard: '#E8EDE9',
   },
   dark: {
     bgPrimary: '#0F1117',
@@ -54,6 +54,9 @@ export const themeColors = {
 export type ActiveTheme = keyof typeof themeColors;
 
 export const AUDIO_BAR_HEIGHT = 68;
+export const SCREEN_MAX_WIDTH = 760;
+export const SCREEN_HORIZONTAL_PADDING = 16;
+export const MIN_TOUCH_TARGET = 44;
 
 export const globalStyles = StyleSheet.create({
   safeArea: {
@@ -80,20 +83,12 @@ export const globalStyles = StyleSheet.create({
     fontFamily: 'Inter_900Black',
   },
   liquidGlass: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
     borderRadius: 24,
     backgroundColor: '#FAFAF8',
   },
   liquidGlassSm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
     borderRadius: 18,
     backgroundColor: '#FAFAF8',
   }

@@ -109,11 +109,13 @@ const parsePayload = (payload: unknown): ParsedHadithPayload => {
   };
 };
 
-const fetchRawPayload = async (signal?: AbortSignal) => {
+const fetchRawPayload = async (_signal?: AbortSignal) => {
   if (rawPayloadCache) return rawPayloadCache;
   if (rawPayloadRequest) return rawPayloadRequest;
 
-  rawPayloadRequest = fetch(BUKHARI_URL, { signal })
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  rawPayloadRequest = fetch(BUKHARI_URL, { signal: controller.signal })
     .then(async response => {
       if (!response.ok) {
         throw new Error(`Failed to load hadiths: ${response.status}`);
@@ -131,6 +133,7 @@ const fetchRawPayload = async (signal?: AbortSignal) => {
       return payload;
     })
     .finally(() => {
+      clearTimeout(timeout);
       rawPayloadRequest = null;
     });
 

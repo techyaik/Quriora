@@ -11,7 +11,7 @@ import {
 } from '../components/explore-topic-components';
 import { useThemeContext } from '../context/ThemeContext';
 import { getHadithTopics, type HadithTopic } from '../services/hadith';
-import { themeColors } from '../styles/theme';
+import { SCREEN_MAX_WIDTH, themeColors } from '../styles/theme';
 
 export const ExploreTopicsScreen = () => {
   const router = useRouter();
@@ -25,7 +25,7 @@ export const ExploreTopicsScreen = () => {
   const colors = useMemo(
     () => ({
       page: themePalette.bgSecondary,
-      card: theme === 'dark' ? '#202631' : theme === 'sepia' ? '#FFF8EA' : '#FFFFFF',
+      card: themePalette.bgCard,
       border: themePalette.border,
       text: themePalette.textPrimary,
       muted: themePalette.textSecondary,
@@ -108,7 +108,7 @@ export const ExploreTopicsScreen = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112 },
+  content: { width: '100%', maxWidth: SCREEN_MAX_WIDTH, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 112 },
   banner: {
     minHeight: 62,
     borderRadius: 16,

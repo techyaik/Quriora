@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { fetchFallbackSurahs } from '../services/quranFallback';
 import { useThemeContext } from '../context/ThemeContext';
-import { themeColors, globalStyles } from '../styles/theme';
+import { SCREEN_MAX_WIDTH, themeColors, globalStyles } from '../styles/theme';
 import { Search, ChevronDown } from 'lucide-react-native';
 
 interface Surah {
@@ -45,29 +45,29 @@ export const SurahListScreen: React.FC = () => {
     fetchSurahs();
   }, []);
 
-  const filtered = surahs.filter(s =>
-    s.nameEnglish.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.nameArabic.includes(searchQuery) ||
-    s.nameMeaning.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.id.toString() === searchQuery
-  );
+  const sorted = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+    const filtered = surahs.filter(s =>
+      s.nameEnglish.toLocaleLowerCase().includes(normalizedQuery) ||
+      s.nameArabic.includes(searchQuery.trim()) ||
+      s.nameMeaning.toLocaleLowerCase().includes(normalizedQuery) ||
+      s.id.toString() === normalizedQuery
+    );
 
-  const sorted = [...filtered].sort((a, b) => {
-    let cmp = 0;
-    if (sortBy === 'id') cmp = a.id - b.id;
-    else if (sortBy === 'length') cmp = a.ayahCount - b.ayahCount;
-    else if (sortBy === 'revelation') cmp = a.orderRevealed - b.orderRevealed;
-    return sortOrder === 'asc' ? cmp : -cmp;
-  });
+    return filtered.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'id') cmp = a.id - b.id;
+      else if (sortBy === 'length') cmp = a.ayahCount - b.ayahCount;
+      else if (sortBy === 'revelation') cmp = a.orderRevealed - b.orderRevealed;
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [searchQuery, sortBy, sortOrder, surahs]);
 
-  const toggleSortOrder = () => {
-    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-  };
+  const toggleSortOrder = () => setSortOrder(current => current === 'asc' ? 'desc' : 'asc');
 
   const juzStartSurahs = [1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 11, 12, 15, 17, 18, 21, 23, 25, 27, 29, 33, 36, 39, 41, 46, 51, 58, 67, 78];
 
-  const renderSurahItem = ({ item }: { item: Surah }) => {
-    return (
+  const renderSurahItem = useCallback(({ item }: { item: Surah }) => (
       <TouchableOpacity
         onPress={() => router.push(`/quran/surah/${item.id}`)}
         style={[styles.surahItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
@@ -89,8 +89,7 @@ export const SurahListScreen: React.FC = () => {
 
         <Text style={[styles.surahArabic, { color: colors.accent }]}>{item.nameArabic}</Text>
       </TouchableOpacity>
-    );
-  };
+  ), [colors, router]);
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>
@@ -152,11 +151,16 @@ export const SurahListScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
+          style={styles.surahList}
           data={sorted}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderSurahItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={process.env.EXPO_OS !== 'web'}
         />
       )}
     </SafeAreaView>
@@ -170,6 +174,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
     alignItems: 'center',
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
   },
   searchBar: {
     flex: 1,
@@ -202,6 +209,14 @@ const styles = StyleSheet.create({
   },
   juzSection: {
     marginBottom: 10,
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
+  },
+  surahList: {
+    width: '100%',
+    maxWidth: SCREEN_MAX_WIDTH,
+    alignSelf: 'center',
   },
   juzTitle: {
     fontSize: 9,
@@ -257,11 +272,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     marginVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
+    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.02)',
   },
   surahNumBadge: {
     width: 36,

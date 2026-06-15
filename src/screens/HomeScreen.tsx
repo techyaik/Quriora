@@ -37,6 +37,8 @@ import { fetchQuranAyah } from '../services/quranFallback';
 import { useAuthContext } from '../context/AuthContext';
 import { useDrawerContext } from '../context/DrawerContext';
 import { type ReadingGoalType, useReadingGoal } from '../context/ReadingGoalContext';
+import { useThemeContext } from '../context/ThemeContext';
+import { themeColors } from '../styles/theme';
 
 const palette = {
   dark: '#0F1D1A',
@@ -76,20 +78,28 @@ interface FeatureCardProps {
   fullWidth?: boolean;
 }
 
-const FeatureCard = ({ title, subtitle, icon, iconBackground, onPress, fullWidth }: FeatureCardProps) => (
-  <TouchableOpacity
-    activeOpacity={0.78}
-    onPress={onPress}
-    style={[styles.featureCard, fullWidth && styles.featureCardFull]}
-  >
-    <View style={styles.featureTopRow}>
-      <View style={[styles.featureIcon, { backgroundColor: iconBackground }]}>{icon}</View>
-      <ChevronRight size={15} color={palette.textFaint} />
-    </View>
-    <Text style={styles.featureTitle}>{title}</Text>
-    <Text style={styles.featureSubtitle}>{subtitle}</Text>
-  </TouchableOpacity>
-);
+const FeatureCard = ({ title, subtitle, icon, iconBackground, onPress, fullWidth }: FeatureCardProps) => {
+  const { theme } = useThemeContext();
+  const colors = themeColors[theme];
+  return (
+    <TouchableOpacity
+      activeOpacity={0.78}
+      onPress={onPress}
+      style={[
+        styles.featureCard,
+        { backgroundColor: colors.bgCard, borderColor: colors.border },
+        fullWidth && styles.featureCardFull
+      ]}
+    >
+      <View style={styles.featureTopRow}>
+        <View style={[styles.featureIcon, { backgroundColor: iconBackground }]}>{icon}</View>
+        <ChevronRight size={15} color={colors.textTertiary} />
+      </View>
+      <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>{title}</Text>
+      <Text style={[styles.featureSubtitle, { color: colors.textTertiary }]}>{subtitle}</Text>
+    </TouchableOpacity>
+  );
+};
 
 export const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -97,6 +107,8 @@ export const HomeScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { openDrawer } = useDrawerContext();
   const { user, isGuest } = useAuthContext();
+  const { theme } = useThemeContext();
+  const colors = themeColors[theme];
 
   const [ayah, setAyah] = useState<HomeAyah | null>(null);
   const {
@@ -149,10 +161,10 @@ export const HomeScreen: React.FC = () => {
   const displayedProgress = goal.type === 'duration' ? Math.floor(progress) : Math.round(progress);
 
   const goalOptions: Array<{ type: ReadingGoalType; label: string; icon: React.ReactNode; defaultTarget: number }> = [
-    { type: 'verses', label: 'Verses', icon: <BookOpen size={17} color={palette.teal} />, defaultTarget: 5 },
-    { type: 'pages', label: 'Pages', icon: <FileText size={17} color={palette.teal} />, defaultTarget: 2 },
-    { type: 'chapters', label: 'Chapters', icon: <Layers3 size={17} color={palette.teal} />, defaultTarget: 1 },
-    { type: 'duration', label: 'Minutes', icon: <Clock3 size={17} color={palette.teal} />, defaultTarget: 15 },
+    { type: 'verses', label: 'Verses', icon: <BookOpen size={17} color={colors.accent} />, defaultTarget: 5 },
+    { type: 'pages', label: 'Pages', icon: <FileText size={17} color={colors.accent} />, defaultTarget: 2 },
+    { type: 'chapters', label: 'Chapters', icon: <Layers3 size={17} color={colors.accent} />, defaultTarget: 1 },
+    { type: 'duration', label: 'Minutes', icon: <Clock3 size={17} color={colors.accent} />, defaultTarget: 15 },
   ];
 
   const openGoalEditor = () => {
@@ -171,177 +183,192 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={palette.dark} />
+    <View style={[styles.root, { backgroundColor: colors.bgPrimary }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.accent} />
       <ScrollView
         contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={[styles.hero, { paddingTop: insets.top + 12 }]}>
+        <View style={[styles.hero, { backgroundColor: colors.accent, paddingTop: insets.top + 12 }]}>
           <View style={[styles.heroInner, tablet && styles.tabletShell]}>
           <View style={styles.topBar}>
             <TouchableOpacity onPress={openDrawer} style={styles.headerButton} activeOpacity={0.7}>
               <MenuIcon size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/explore/settings')} style={styles.headerButton}>
-              <Settings size={20} color="#9BAAA5" />
+              <Settings size={20} color="rgba(255, 255, 255, 0.75)" />
             </TouchableOpacity>
           </View>
-
+ 
           <View style={[styles.welcomeRow, compact && styles.welcomeRowCompact]}>
             <View>
-              <Text style={styles.welcomeEyebrow}>ASSALAMU ALAIKUM</Text>
-              <Text style={styles.welcomeName}>{displayName}</Text>
+              <Text style={[styles.welcomeEyebrow, { color: 'rgba(255, 255, 255, 0.7)' }]}>ASSALAMU ALAIKUM</Text>
+              <Text style={[styles.welcomeName, { color: '#FFFFFF' }]}>{displayName}</Text>
             </View>
             <View style={[styles.dateBlock, compact && styles.dateBlockCompact]}>
-              <Text style={styles.dateText}>{gregorianDate}</Text>
-              <Text style={styles.hijriText}>{hijriDate}</Text>
+              <Text style={[styles.dateText, { color: 'rgba(255, 255, 255, 0.65)' }]}>{gregorianDate}</Text>
+              <Text style={[styles.hijriText, { color: 'rgba(255, 255, 255, 0.85)' }]}>{hijriDate}</Text>
             </View>
           </View>
-
-          <TouchableOpacity activeOpacity={0.86} onPress={openGoalEditor} style={styles.progressCard}>
+ 
+          <TouchableOpacity
+            activeOpacity={0.86}
+            onPress={openGoalEditor}
+            style={[
+              styles.progressCard,
+              {
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                borderColor: 'rgba(255, 255, 255, 0.15)',
+              }
+            ]}
+          >
             <View style={styles.progressHeader}>
               <View style={styles.progressHeading}>
-                <Text style={styles.progressEyebrow}>DAILY READING GOAL</Text>
-                <Text style={[styles.progressTitle, compact && styles.progressTitleCompact]}>
+                <Text style={[styles.progressEyebrow, { color: 'rgba(255, 255, 255, 0.7)' }]}>DAILY READING GOAL</Text>
+                <Text style={[styles.progressTitle, { color: '#FFFFFF' }, compact && styles.progressTitleCompact]}>
                   {displayedProgress} of {goal.target} {goalLabel}
                 </Text>
               </View>
               <View style={styles.progressBadgeRow}>
-                <View style={styles.progressPercentBadge}>
-                  <Text style={styles.progressPercentText}>{progressPercent}%</Text>
+                <View style={[styles.progressPercentBadge, { backgroundColor: 'rgba(255, 255, 255, 0.18)' }]}>
+                  <Text style={[styles.progressPercentText, { color: '#FFFFFF' }]}>{progressPercent}%</Text>
                 </View>
-                <Pencil size={14} color={palette.tealBright} />
+                <Pencil size={14} color="#FFFFFF" />
               </View>
             </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+            <View style={[styles.progressTrack, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+              <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: '#FFFFFF' }]} />
             </View>
             <View style={styles.progressMetaRow}>
               <View style={styles.progressMetaItem}>
                 <Flame size={14} color="#FF9A52" fill="#FF9A52" />
-                <Text style={styles.progressMetaText}>{streak} day streak</Text>
+                <Text style={[styles.progressMetaText, { color: 'rgba(255, 255, 255, 0.85)' }]}>{streak} day streak</Text>
               </View>
-              {!compact ? <Text style={styles.progressHint}>Tap to adjust your goal</Text> : null}
+              {!compact ? <Text style={[styles.progressHint, { color: 'rgba(255, 255, 255, 0.55)' }]}>Tap to adjust your goal</Text> : null}
             </View>
           </TouchableOpacity>
           </View>
         </View>
-
-        <View style={[styles.body, tablet && styles.tabletShell]}>
+ 
+        <View style={[styles.body, { backgroundColor: colors.bgPrimary }, tablet && styles.tabletShell]}>
           {ayah && (
             <TouchableOpacity
               activeOpacity={0.82}
               onPress={() => router.push(`/quran/surah/${ayah.surahId}`)}
-              style={styles.verseCard}
+              style={[styles.verseCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             >
-              <View style={styles.verseStripe} />
-              <Text style={styles.verseLabel}>VERSE OF THE DAY</Text>
-              <Text style={styles.verseArabic}>{ayah.textUthmani}</Text>
-              <Text style={styles.verseTranslation}>{translation}</Text>
-              <Text style={styles.verseReference}>
+              <View style={[styles.verseStripe, { backgroundColor: colors.accent }]} />
+              <Text style={[styles.verseLabel, { color: colors.accent }]}>VERSE OF THE DAY</Text>
+              <Text style={[styles.verseArabic, { color: colors.textPrimary }]}>{ayah.textUthmani}</Text>
+              <Text style={[styles.verseTranslation, { color: colors.textSecondary }]}>{translation}</Text>
+              <Text style={[styles.verseReference, { color: colors.textTertiary }]}>
                 Surah {ayah.surah.nameEnglish} {ayah.surahId}:{ayah.ayahNumber}
               </Text>
             </TouchableOpacity>
           )}
-
+ 
           <TouchableOpacity
             activeOpacity={0.84}
             onPress={() => router.push(`/quran/surah/${readingSurahId}`)}
-            style={styles.continueCard}
+            style={[styles.continueCard, { backgroundColor: colors.accent }]}
           >
-            <View style={styles.continueGlow} />
-            <View style={styles.continueIcon}>
+            <View style={[styles.continueGlow, { backgroundColor: '#FFFFFF', opacity: 0.12 }]} />
+            <View style={[styles.continueIcon, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
               <BookOpen size={20} color="#FFFFFF" />
             </View>
             <View style={styles.continueInfo}>
-              <Text style={styles.continueEyebrow}>{lastSurahId ? 'CONTINUE READING' : 'START READING'}</Text>
-              <Text style={styles.continueTitle}>
+              <Text style={[styles.continueEyebrow, { color: 'rgba(255, 255, 255, 0.7)' }]}>{lastSurahId ? 'CONTINUE READING' : 'START READING'}</Text>
+              <Text style={[styles.continueTitle, { color: '#FFFFFF' }]}>
                 {lastSurahId ? `Surah ${lastSurahId}` : 'Open the Quran'}
               </Text>
-              <Text style={styles.continueMeta}>
+              <Text style={[styles.continueMeta, { color: 'rgba(255, 255, 255, 0.85)' }]}>
                 {lastAyahNumber ? `Ayah ${lastAyahNumber}` : 'Begin with Al-Faatiha'}
               </Text>
             </View>
-            <Text style={styles.continueArabic}>اقْرَأْ</Text>
+            <Text style={[styles.continueArabic, { color: 'rgba(255, 255, 255, 0.25)' }]}>اقْرَأْ</Text>
           </TouchableOpacity>
-
+ 
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: palette.tealLight }]}>
-                <Flame size={18} color={palette.teal} />
+            <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.statIcon, { backgroundColor: colors.accentLight }]}>
+                <Flame size={18} color={colors.accent} />
               </View>
-              <Text style={styles.statNumber}>{streak}</Text>
-              <Text style={styles.statLabel}>Day streak</Text>
+              <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{streak}</Text>
+              <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Day streak</Text>
             </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: palette.goldLight }]}>
-                <Target size={18} color={palette.gold} />
+            <View style={[styles.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.statIcon, { backgroundColor: colors.goldLight }]}>
+                <Target size={18} color={colors.gold} />
               </View>
-              <Text style={styles.statNumber}>{displayedProgress}</Text>
-              <Text style={styles.statLabel}>{goalLabel[0].toUpperCase() + goalLabel.slice(1)} today</Text>
+              <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{displayedProgress}</Text>
+              <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{goalLabel[0].toUpperCase() + goalLabel.slice(1)} today</Text>
             </View>
           </View>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Explore Quriora</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Explore Quriora</Text>
             <TouchableOpacity onPress={() => router.navigate('/explore')}>
-              <Text style={styles.sectionAction}>View all</Text>
+              <Text style={[styles.sectionAction, { color: colors.accent }]}>View all</Text>
             </TouchableOpacity>
           </View>
-
+ 
           <View style={styles.featureGrid}>
             <FeatureCard
               title="Read Quran"
               subtitle="114 Surahs and translations"
-              icon={<BookOpen size={20} color={palette.teal} />}
-              iconBackground={palette.tealLight}
+              icon={<BookOpen size={20} color={colors.accent} />}
+              iconBackground={colors.accentLight}
               onPress={() => router.navigate('/quran')}
               fullWidth={compact}
             />
             <FeatureCard
               title="Listen"
               subtitle="Recitations and playback"
-              icon={<Headphones size={20} color={palette.gold} />}
-              iconBackground={palette.goldLight}
+              icon={<Headphones size={20} color={colors.gold} />}
+              iconBackground={colors.goldLight}
               onPress={() => router.navigate('/listen')}
               fullWidth={compact}
             />
             <FeatureCard
               title="Memorize"
               subtitle="Build your Hifz routine"
-              icon={<Star size={20} color={palette.purple} />}
-              iconBackground={palette.purpleLight}
+              icon={<Star size={20} color={colors.accent} />}
+              iconBackground={colors.accentLight}
               onPress={() => router.navigate('/memorize')}
               fullWidth={compact}
             />
             <FeatureCard
               title="Bookmarks"
               subtitle="Saved Ayahs and notes"
-              icon={<Bookmark size={20} color={palette.rose} />}
-              iconBackground={palette.roseLight}
+              icon={<Bookmark size={20} color={colors.gold} />}
+              iconBackground={colors.goldLight}
               onPress={() => router.push('/home/bookmarks')}
               fullWidth={compact}
             />
           </View>
         </View>
       </ScrollView>
-
+ 
       <Modal visible={goalEditorOpen} transparent animationType="fade" onRequestClose={() => setGoalEditorOpen(false)}>
         <KeyboardAvoidingView behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
           <Pressable style={styles.modalBackdrop} onPress={() => setGoalEditorOpen(false)} />
-          <View style={[styles.goalSheet, compact && styles.goalSheetCompact]}>
+          <View style={[styles.goalSheet, { backgroundColor: colors.bgPrimary }, compact && styles.goalSheetCompact]}>
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
             <View style={styles.goalSheetHeader}>
               <View>
-                <Text style={styles.goalSheetEyebrow}>DAILY QURAN GOAL</Text>
-                <Text style={styles.goalSheetTitle}>Choose your reading rhythm</Text>
+                <Text style={[styles.goalSheetEyebrow, { color: colors.accent }]}>DAILY QURAN GOAL</Text>
+                <Text style={[styles.goalSheetTitle, { color: colors.textPrimary }]}>Choose your reading rhythm</Text>
               </View>
-              <TouchableOpacity onPress={() => setGoalEditorOpen(false)} style={styles.closeButton}>
-                <X size={19} color={palette.textMuted} />
+              <TouchableOpacity onPress={() => setGoalEditorOpen(false)} style={[styles.closeButton, { backgroundColor: colors.bgCard }]}>
+                <X size={19} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-
+ 
             <View style={styles.goalTypeGrid}>
               {goalOptions.map(option => {
                 const selected = draftGoalType === option.type;
@@ -352,36 +379,44 @@ export const HomeScreen: React.FC = () => {
                       setDraftGoalType(option.type);
                       setDraftTarget(String(option.defaultTarget));
                     }}
-                    style={[styles.goalTypeCard, selected && styles.goalTypeCardSelected]}
+                    style={[
+                      styles.goalTypeCard,
+                      {
+                        backgroundColor: colors.bgCard,
+                        borderColor: selected ? colors.accent : colors.border,
+                      },
+                      selected && { backgroundColor: colors.accentLight }
+                    ]}
                   >
-                    <View style={styles.goalTypeIcon}>{option.icon}</View>
-                    <Text style={[styles.goalTypeLabel, selected && styles.goalTypeLabelSelected]}>{option.label}</Text>
+                    <View style={[styles.goalTypeIcon, { backgroundColor: colors.accentLight }]}>{option.icon}</View>
+                    <Text style={[styles.goalTypeLabel, { color: selected ? colors.accent : colors.textSecondary }]}>{option.label}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-
-            <Text style={styles.targetLabel}>Daily target</Text>
-            <View style={styles.targetEditor}>
+ 
+            <Text style={[styles.targetLabel, { color: colors.textSecondary }]}>Daily target</Text>
+            <View style={[styles.targetEditor, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               <TouchableOpacity onPress={() => adjustTarget(-1)} style={styles.targetButton}>
-                <Minus size={18} color={palette.text} />
+                <Minus size={18} color={colors.textPrimary} />
               </TouchableOpacity>
               <TextInput
                 value={draftTarget}
                 onChangeText={value => setDraftTarget(value.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"
                 selectTextOnFocus
-                style={styles.targetInput}
+                style={[styles.targetInput, { color: colors.textPrimary }]}
                 accessibilityLabel="Daily goal target"
               />
               <TouchableOpacity onPress={() => adjustTarget(1)} style={styles.targetButton}>
-                <Plus size={18} color={palette.text} />
+                <Plus size={18} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity onPress={saveGoal} style={styles.saveGoalButton}>
+ 
+            <TouchableOpacity onPress={saveGoal} style={[styles.saveGoalButton, { backgroundColor: colors.accent }]}>
               <Text style={styles.saveGoalText}>Save daily goal</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -396,7 +431,7 @@ const styles = StyleSheet.create({
   heroInner: { width: '100%', alignSelf: 'center' },
   tabletShell: { width: '100%', maxWidth: 760, alignSelf: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
-  headerButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   welcomeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18 },
   welcomeRowCompact: { alignItems: 'flex-start', flexDirection: 'column', gap: 9 },
   welcomeEyebrow: { color: palette.tealBright, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
@@ -452,12 +487,12 @@ const styles = StyleSheet.create({
   featureSubtitle: { color: palette.textFaint, fontSize: 10, lineHeight: 15, marginTop: 4 },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: { position: 'absolute', inset: 0, backgroundColor: 'rgba(10,20,17,0.54)' },
-  goalSheet: { width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: palette.cream, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 30, boxShadow: '0 -10px 30px rgba(0,0,0,0.15)' },
+  goalSheet: { width: '100%', maxWidth: 560, maxHeight: '90%', alignSelf: 'center', backgroundColor: palette.cream, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 30, boxShadow: '0 -10px 30px rgba(0,0,0,0.15)' },
   goalSheetCompact: { paddingHorizontal: 14 },
   goalSheetHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   goalSheetEyebrow: { color: palette.teal, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   goalSheetTitle: { color: palette.text, fontSize: 20, lineHeight: 27, fontWeight: '800', marginTop: 4 },
-  closeButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: palette.white, alignItems: 'center', justifyContent: 'center' },
+  closeButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.white, alignItems: 'center', justifyContent: 'center' },
   goalTypeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 20 },
   goalTypeCard: { flexGrow: 1, flexBasis: '46%', minWidth: 125, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.white, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12 },
   goalTypeCardSelected: { borderColor: palette.teal, backgroundColor: palette.tealLight },
@@ -466,7 +501,7 @@ const styles = StyleSheet.create({
   goalTypeLabelSelected: { color: palette.teal },
   targetLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '700', marginTop: 20, marginBottom: 8 },
   targetEditor: { height: 54, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: palette.border, borderRadius: 16, backgroundColor: palette.white, paddingHorizontal: 6 },
-  targetButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  targetButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   targetInput: { flex: 1, color: palette.text, fontSize: 20, fontWeight: '800', textAlign: 'center', paddingVertical: 0 },
   saveGoalButton: { height: 50, borderRadius: 16, backgroundColor: palette.teal, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
   saveGoalText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },

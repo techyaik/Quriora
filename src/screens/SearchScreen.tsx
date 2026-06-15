@@ -8,7 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  Modal
+  Modal,
+  type StyleProp,
+  type TextStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -47,6 +49,7 @@ export const SearchScreen: React.FC = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AyahSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   
   // Filters
@@ -57,6 +60,7 @@ export const SearchScreen: React.FC = () => {
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const searchInputRef = useRef<TextInput>(null);
+  const searchRequestId = useRef(0);
 
   // Arabic virtual keyboard keys
   const arabicKeyboardLayout = [
@@ -86,7 +90,10 @@ export const SearchScreen: React.FC = () => {
   // Debounced search trigger
   useEffect(() => {
     if (!query.trim()) {
+      searchRequestId.current += 1;
       setResults([]);
+      setSearchError('');
+      setLoading(false);
       return;
     }
 
@@ -99,14 +106,22 @@ export const SearchScreen: React.FC = () => {
 
   const handleSearch = async (searchVal: string) => {
     if (!searchVal.trim()) return;
+    const requestId = ++searchRequestId.current;
     setLoading(true);
+    setSearchError('');
     try {
-      setResults(await searchQuran(searchVal.trim(), language, selectedSurah));
+      const nextResults = await searchQuran(searchVal.trim(), language, selectedSurah);
+      if (requestId !== searchRequestId.current) return;
+      setResults(nextResults);
       await saveToHistory(searchVal.trim());
     } catch (err) {
       console.warn('Search request failed:', err);
+      if (requestId === searchRequestId.current) {
+        setResults([]);
+        setSearchError('Search is unavailable right now. Check your connection and try again.');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestId.current) setLoading(false);
     }
   };
 
@@ -148,7 +163,12 @@ export const SearchScreen: React.FC = () => {
   };
 
   // Render Highlighted text in React Native
-  const renderHighlightedText = (text: string, term: string, styleText: any, styleHighlight: any) => {
+  const renderHighlightedText = (
+    text: string,
+    term: string,
+    styleText: StyleProp<TextStyle>,
+    styleHighlight: StyleProp<TextStyle>
+  ) => {
     if (!term || !text) return <Text style={styleText}>{text}</Text>;
     
     // Escape regex characters
@@ -159,7 +179,7 @@ export const SearchScreen: React.FC = () => {
     return (
       <Text style={styleText}>
         {parts.map((part, index) => {
-          const isMatch = regex.test(part);
+          const isMatch = index % 2 === 1;
           return (
             <Text key={index} style={isMatch ? styleHighlight : null}>
               {part}
@@ -296,6 +316,17 @@ export const SearchScreen: React.FC = () => {
 
             {loading ? (
               <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: 24 }} />
+            ) : searchError ? (
+              <View style={[styles.emptyBox, { borderColor: colors.border }]}> 
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Search unavailable</Text>
+                <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>{searchError}</Text>
+                <TouchableOpacity
+                  onPress={() => handleSearch(query)}
+                  style={[styles.retryButton, { backgroundColor: colors.accent }]}
+                >
+                  <Text style={styles.retryButtonText}>Try again</Text>
+                </TouchableOpacity>
+              </View>
             ) : results.length === 0 ? (
               <View style={[styles.emptyBox, { borderColor: colors.border }]}>
                 <BookOpen size={32} color={colors.textTertiary} style={{ opacity: 0.5, marginBottom: 8 }} />
@@ -516,11 +547,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     padding: 14,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -626,6 +653,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 2,
   },
+  retryButton: {
+    minHeight: 44,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   resultsList: {
     borderRadius: 20,
     borderWidth: 1.5,
@@ -691,12 +731,15 @@ const styles = StyleSheet.create({
   },
   keyboardRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 4,
   },
   keyButton: {
-    flex: 1,
-    height: 30,
+    flexGrow: 1,
+    flexBasis: 40,
+    minWidth: 40,
+    height: 44,
     borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
@@ -777,7 +820,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   modalClose: {
-    padding: 4,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalListItem: {
     padding: 16,

@@ -8,9 +8,6 @@ import { useThemeContext } from '@/src/context/ThemeContext';
 import { AUDIO_BAR_HEIGHT, themeColors } from '@/src/styles/theme';
 
 const TAB_BAR_HEIGHT = 78;
-const ACTIVE_COLOR = '#087F7A';
-const INACTIVE_COLOR = '#747673';
-const BAR_BACKGROUND = '#F8F4EC';
 
 export default function WebTabLayout() {
   const { theme } = useThemeContext();
@@ -22,8 +19,8 @@ export default function WebTabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: ACTIVE_COLOR,
-        tabBarInactiveTintColor: INACTIVE_COLOR,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textSecondary,
         sceneStyle: {
           paddingBottom: TAB_BAR_HEIGHT + (currentSurahId ? AUDIO_BAR_HEIGHT : 0),
           backgroundColor: colors.bgPrimary,
@@ -34,8 +31,8 @@ export default function WebTabLayout() {
           right: 0,
           bottom: 0,
           height: TAB_BAR_HEIGHT,
-          backgroundColor: BAR_BACKGROUND,
-          borderTopColor: '#DDD8CF',
+          backgroundColor: colors.bgSecondary,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           paddingTop: 8,
           paddingBottom: 8,
@@ -44,7 +41,7 @@ export default function WebTabLayout() {
           flex: 1,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: '600',
         },
       }}

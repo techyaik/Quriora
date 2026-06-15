@@ -7,19 +7,19 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Animated,
-  Dimensions,
   Switch,
   ScrollView,
   Share,
   Platform,
   Linking,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ArrowRight, Share2, Heart, Globe, Star, MessageCircle, Bug, Info, Book } from 'lucide-react-native';
 import { useThemeContext } from './ThemeContext';
 import { themeColors } from '../styles/theme';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
@@ -28,7 +28,6 @@ const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 const IOS_APP_URL = 'https://apps.apple.com/app/quriora/id123456789';
 const ANDROID_APP_URL = 'https://play.google.com/store/apps/details?id=com.aik7.quriora';
 const TERMS_URL = 'https://quriora.app/terms';
-const PRIVACY_URL = 'https://quriora.app/privacy';
 const HAJJ_URL = 'https://www.islamicfinder.org/hajj-guide/';
 
 interface DrawerContextType {
@@ -53,9 +52,10 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
 
-  const screenWidth = Dimensions.get('window').width;
-  const drawerWidth = screenWidth * 0.82;
+  const drawerWidth = Math.min(screenWidth * 0.86, 390);
+  const useNativeDriver = process.env.EXPO_OS !== 'web';
 
   const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -66,12 +66,12 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver,
         }),
         Animated.timing(fadeAnim, {
           toValue: 0.5,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver,
         }),
       ]).start();
     } else {
@@ -79,16 +79,16 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         Animated.timing(slideAnim, {
           toValue: -drawerWidth,
           duration: 250,
-          useNativeDriver: true,
+          useNativeDriver,
         }),
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 250,
-          useNativeDriver: true,
+          useNativeDriver,
         }),
       ]).start();
     }
-  }, [isDrawerOpen, drawerWidth]);
+  }, [fadeAnim, isDrawerOpen, drawerWidth, slideAnim, useNativeDriver]);
 
   const openDrawer = () => setIsDrawerOpen(true);
 
@@ -97,19 +97,19 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       Animated.timing(slideAnim, {
         toValue: -drawerWidth,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver,
       }),
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver,
       }),
     ]).start(() => setIsDrawerOpen(false));
   };
 
-  const navigateAndClose = (path: string) => {
+  const navigateAndClose = (path: Href) => {
     closeDrawer();
-    setTimeout(() => router.push(path as any), 300);
+    setTimeout(() => router.push(path), 300);
   };
 
   const openURL = async (url: string) => {
@@ -294,7 +294,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                       styles.actionCard,
                       {
                         borderColor: colors.accent,
-                        backgroundColor: theme === 'dark' ? colors.bgSecondary : '#FFF',
+                        backgroundColor: colors.bgCard,
                       },
                     ]}
                     activeOpacity={0.8}
@@ -313,7 +313,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                       styles.actionCard,
                       {
                         borderColor: colors.accent,
-                        backgroundColor: theme === 'dark' ? colors.bgSecondary : '#FFF',
+                        backgroundColor: colors.bgCard,
                       },
                     ]}
                     activeOpacity={0.8}
@@ -357,11 +357,7 @@ const styles = StyleSheet.create({
   },
   drawerContainer: {
     height: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 16,
+    boxShadow: '4px 0 12px rgba(0, 0, 0, 0.18)',
   },
   safeArea: {
     flex: 1,
@@ -374,7 +370,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   backButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitleWrap: {
     flex: 1,
@@ -395,6 +394,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   menuItem: {
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 13,
@@ -439,11 +439,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.03)',
   },
   cardText: {
     fontSize: 13,
