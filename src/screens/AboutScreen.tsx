@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Linking,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeContext } from '../context/ThemeContext';
@@ -23,14 +24,16 @@ import {
   Info,
   ExternalLink,
 } from 'lucide-react-native';
+import { getStoreUrl, releaseLinks } from '../config/release';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
-const IOS_URL = 'https://apps.apple.com/app/quriora/id123456789';
-const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.aik7.quriora';
-const PRIVACY_URL = 'https://quriora.app/privacy';
-const TERMS_URL = 'https://quriora.app/terms';
-
-const openURL = (url: string) => Linking.openURL(url).catch(() => {});
+const openURL = (url: string | null, label: string) => {
+  if (!url) {
+    Alert.alert(`${label} unavailable`, `${label} has not been configured for this release.`);
+    return;
+  }
+  Linking.openURL(url).catch(() => Alert.alert('Cannot Open Link', `The ${label.toLowerCase()} could not be opened.`));
+};
 
 export const AboutScreen: React.FC = () => {
   const { theme } = useThemeContext();
@@ -38,7 +41,7 @@ export const AboutScreen: React.FC = () => {
 
   const infoRows = [
     { label: 'Version', value: `${APP_VERSION}` },
-    { label: 'Platform', value: Platform.OS === 'ios' ? 'Apple iOS' : 'Android' },
+    { label: 'Platform', value: Platform.OS === 'ios' ? 'Apple iOS' : Platform.OS === 'android' ? 'Android' : 'Web' },
     { label: 'Quran Source', value: 'alquran.cloud API' },
     { label: 'Audio Source', value: 'cdn.islamic.network' },
   ];
@@ -115,7 +118,7 @@ export const AboutScreen: React.FC = () => {
 
           <TouchableOpacity
             style={[styles.linkRow, { borderBottomColor: colors.border }]}
-            onPress={() => openURL(PRIVACY_URL)}
+            onPress={() => openURL(releaseLinks.privacy, 'Privacy Policy')}
             activeOpacity={0.7}
           >
             <Shield size={15} color={colors.accent} />
@@ -125,7 +128,7 @@ export const AboutScreen: React.FC = () => {
 
           <TouchableOpacity
             style={[styles.linkRow, { borderBottomColor: colors.border }]}
-            onPress={() => openURL(TERMS_URL)}
+            onPress={() => openURL(releaseLinks.terms, 'Terms of Use')}
             activeOpacity={0.7}
           >
             <BookOpen size={15} color={colors.accent} />
@@ -135,7 +138,7 @@ export const AboutScreen: React.FC = () => {
 
           <TouchableOpacity
             style={[styles.linkRow, { borderBottomColor: colors.border }]}
-            onPress={() => openURL('mailto:support@quriora.app')}
+            onPress={() => openURL(releaseLinks.supportEmail ? `mailto:${releaseLinks.supportEmail}` : null, 'Support Email')}
             activeOpacity={0.7}
           >
             <Mail size={15} color={colors.accent} />
@@ -145,11 +148,14 @@ export const AboutScreen: React.FC = () => {
 
           <TouchableOpacity
             style={[styles.linkRow, { borderBottomWidth: 0 }]}
-            onPress={() => openURL(Platform.OS === 'ios' ? IOS_URL : ANDROID_URL)}
+            onPress={() => openURL(
+              Platform.OS === 'web' ? null : getStoreUrl(Platform.OS === 'ios' ? 'ios' : 'android'),
+              'Store Listing'
+            )}
             activeOpacity={0.7}
           >
             <Star size={15} color="#F4774A" />
-            <Text style={[styles.linkLabel, { color: colors.textPrimary }]}>Rate on App Store</Text>
+            <Text style={[styles.linkLabel, { color: colors.textPrimary }]}>Rate This App</Text>
             <ExternalLink size={13} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>

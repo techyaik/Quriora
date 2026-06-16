@@ -11,9 +11,9 @@
       "bundleIdentifier": "com.aik7.quriora",
       "buildNumber": "1",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"],
-        "NSMicrophoneUsageDescription": "Quriora does not use the microphone.",
-        "NSCameraUsageDescription": "Quriora does not use the camera."
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -46,7 +46,20 @@
         }
       ],
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FAFAF8",
+          "image": "./assets/icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0F1117",
+            "image": "./assets/icon.png"
+          }
+        }
+      ]
     ],
     "scheme": "quriora",
     "experiments": {

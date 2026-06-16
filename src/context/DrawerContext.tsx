@@ -21,13 +21,10 @@ import { useThemeContext } from './ThemeContext';
 import { themeColors } from '../styles/theme';
 import { type Href, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import { getStoreUrl, releaseLinks } from '../config/release';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
-// App store URLs — update when live on stores
-const IOS_APP_URL = 'https://apps.apple.com/app/quriora/id123456789';
-const ANDROID_APP_URL = 'https://play.google.com/store/apps/details?id=com.aik7.quriora';
-const TERMS_URL = 'https://quriora.app/terms';
 const HAJJ_URL = 'https://www.islamicfinder.org/hajj-guide/';
 
 interface DrawerContextType {
@@ -125,12 +122,21 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const openConfiguredURL = async (url: string | null, label: string) => {
+    if (!url) {
+      Alert.alert(`${label} unavailable`, `${label} has not been configured for this release.`);
+      return;
+    }
+    await openURL(url);
+  };
+
   const handleShare = async () => {
     try {
+      const storeUrl = Platform.OS === 'web' ? null : getStoreUrl(Platform.OS === 'ios' ? 'ios' : 'android');
       await Share.share({
         message:
-          'Explore the Quran, track your Hifz progress, and listen to beautiful recitations with Quriora! ' +
-          (Platform.OS === 'ios' ? IOS_APP_URL : ANDROID_APP_URL),
+          'Explore the Quran, track your Hifz progress, and listen to beautiful recitations with Quriora!' +
+          (storeUrl ? ` ${storeUrl}` : ''),
         title: 'Quriora — Quran App',
       });
     } catch {
@@ -139,13 +145,13 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const handleRateApp = () => {
-    const url = Platform.OS === 'ios' ? IOS_APP_URL : ANDROID_APP_URL;
-    openURL(url);
+    const storeUrl = Platform.OS === 'web' ? null : getStoreUrl(Platform.OS === 'ios' ? 'ios' : 'android');
+    void openConfiguredURL(storeUrl, 'Store Listing');
     closeDrawer();
   };
 
   const handleTerms = () => {
-    openURL(TERMS_URL);
+    void openConfiguredURL(releaseLinks.terms, 'Terms and Privacy Policy');
     closeDrawer();
   };
 
@@ -155,12 +161,22 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const handleRequestFeature = () => {
-    openURL('mailto:support@quriora.app?subject=Feature%20Request&body=Hi%20Quriora%20team%2C%0A%0AI%20would%20like%20to%20suggest%3A');
+    void openConfiguredURL(
+      releaseLinks.supportEmail
+        ? `mailto:${releaseLinks.supportEmail}?subject=Feature%20Request&body=Hi%20Quriora%20team%2C%0A%0AI%20would%20like%20to%20suggest%3A`
+        : null,
+      'Support Email'
+    );
     closeDrawer();
   };
 
   const handleReportIssue = () => {
-    openURL('mailto:support@quriora.app?subject=Bug%20Report&body=Hi%20Quriora%20team%2C%0A%0AI%20found%20an%20issue%3A');
+    void openConfiguredURL(
+      releaseLinks.supportEmail
+        ? `mailto:${releaseLinks.supportEmail}?subject=Bug%20Report&body=Hi%20Quriora%20team%2C%0A%0AI%20found%20an%20issue%3A`
+        : null,
+      'Support Email'
+    );
     closeDrawer();
   };
 
@@ -308,7 +324,10 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => openURL('mailto:support@quriora.app?subject=Support')}
+                    onPress={() => void openConfiguredURL(
+                      releaseLinks.supportEmail ? `mailto:${releaseLinks.supportEmail}?subject=Support` : null,
+                      'Support Email'
+                    )}
                     style={[
                       styles.actionCard,
                       {

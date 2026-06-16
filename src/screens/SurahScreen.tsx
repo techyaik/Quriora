@@ -205,6 +205,23 @@ export const SurahScreen: React.FC = () => {
     return acc;
   }, {}), [surah]);
 
+  const renderCardItem = useCallback(({ item }: { item: AyahItem }) => {
+    if (!surah) return null;
+
+    return (
+      <AyahCard
+        ayah={item}
+        surahId={surah.id}
+        surahNameEnglish={surah.nameEnglish}
+        isPlaying={isPlaying && currentSurahId === surah.id && currentAyahNumber === item.ayahNumber}
+        isBookmarked={bookmarks.includes(item.id)}
+        onPlay={handlePlay}
+        onBookmark={handleBookmark}
+        onOpenTafseer={handleOpenTafseer}
+      />
+    );
+  }, [surah, isPlaying, currentSurahId, currentAyahNumber, bookmarks, handlePlay, handleBookmark, handleOpenTafseer]);
+
   if (loading) {
     return (
       <View style={[styles.loadingCenter, { backgroundColor: colors.bgPrimary }]}>
@@ -227,19 +244,6 @@ export const SurahScreen: React.FC = () => {
       </View>
     );
   }
-
-  const renderCardItem = useCallback(({ item }: { item: AyahItem }) => (
-    <AyahCard
-      ayah={item}
-      surahId={surah.id}
-      surahNameEnglish={surah.nameEnglish}
-      isPlaying={isPlaying && currentSurahId === surah.id && currentAyahNumber === item.ayahNumber}
-      isBookmarked={bookmarks.includes(item.id)}
-      onPlay={handlePlay}
-      onBookmark={handleBookmark}
-      onOpenTafseer={handleOpenTafseer}
-    />
-  ), [surah, isPlaying, currentSurahId, currentAyahNumber, bookmarks, handlePlay, handleBookmark, handleOpenTafseer]);
 
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['left', 'right']}>

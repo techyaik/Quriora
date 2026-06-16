@@ -21,6 +21,7 @@ import { useAudioContext } from '../context/AudioContext';
 import { useAuthContext } from '../context/AuthContext';
 import { SCREEN_MAX_WIDTH, themeColors, globalStyles } from '../styles/theme';
 import Constants from 'expo-constants';
+import { releaseLinks } from '../config/release';
 import {
   Sliders,
   User,
@@ -41,7 +42,13 @@ import {
 } from 'lucide-react-native';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
-const openURL = (url: string) => Linking.openURL(url).catch(() => {});
+const openURL = (url: string | null, label = 'Link') => {
+  if (!url) {
+    Alert.alert(`${label} unavailable`, `${label} has not been configured for this release.`);
+    return;
+  }
+  Linking.openURL(url).catch(() => Alert.alert('Cannot Open Link', `The ${label.toLowerCase()} could not be opened.`));
+};
 
 export const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -463,7 +470,12 @@ export const SettingsScreen: React.FC = () => {
           </View>
 
           <TouchableOpacity
-            onPress={() => openURL('mailto:support@quriora.app?subject=Support%20Request')}
+            onPress={() => openURL(
+              releaseLinks.supportEmail
+                ? `mailto:${releaseLinks.supportEmail}?subject=Support%20Request`
+                : null,
+              'Support Email'
+            )}
             style={[styles.helpRow, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
           >
@@ -472,13 +484,20 @@ export const SettingsScreen: React.FC = () => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Contact Support</Text>
-              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>support@quriora.app</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>
+                {releaseLinks.supportEmail ?? 'Required before store submission'}
+              </Text>
             </View>
             <ChevronRight size={15} color={colors.textTertiary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => openURL('mailto:support@quriora.app?subject=Feature%20Request')}
+            onPress={() => openURL(
+              releaseLinks.supportEmail
+                ? `mailto:${releaseLinks.supportEmail}?subject=Feature%20Request`
+                : null,
+              'Support Email'
+            )}
             style={[styles.helpRow, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
           >
@@ -493,7 +512,12 @@ export const SettingsScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => openURL('mailto:support@quriora.app?subject=Bug%20Report')}
+            onPress={() => openURL(
+              releaseLinks.supportEmail
+                ? `mailto:${releaseLinks.supportEmail}?subject=Bug%20Report`
+                : null,
+              'Support Email'
+            )}
             style={[styles.helpRow, { borderBottomWidth: 0 }]}
             activeOpacity={0.7}
           >
@@ -546,7 +570,7 @@ export const SettingsScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => openURL('https://quriora.app/privacy')}
+            onPress={() => openURL(releaseLinks.privacy, 'Privacy Policy')}
             style={[styles.helpRow, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
           >
@@ -555,7 +579,7 @@ export const SettingsScreen: React.FC = () => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Privacy Policy</Text>
-              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>quriora.app/privacy</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Required before store submission</Text>
             </View>
             <ChevronRight size={15} color={colors.textTertiary} />
           </TouchableOpacity>
@@ -566,7 +590,9 @@ export const SettingsScreen: React.FC = () => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>App Version</Text>
-              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>{APP_VERSION} · {Platform.OS === 'ios' ? 'iOS' : 'Android'}</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>
+                {APP_VERSION} · {Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web'}
+              </Text>
             </View>
           </View>
         </View>

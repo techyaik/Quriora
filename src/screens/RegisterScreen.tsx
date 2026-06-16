@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   ScrollView
 } from 'react-native';
@@ -86,11 +87,12 @@ export const RegisterScreen: React.FC = () => {
         >
           {/* Logo/Illustration */}
           <View style={styles.logoContainer}>
-            <View style={[styles.logoOutline, { borderColor: colors.border, backgroundColor: colors.bgCard }]}>
-              <View style={[styles.logoCenter, { backgroundColor: colors.accent }]}>
-                <UserPlus size={26} color="#fff" />
-              </View>
-            </View>
+            <Image
+              source={require('../../assets/icon.png')}
+              resizeMode="contain"
+              style={[styles.appIcon, { borderColor: colors.border }]}
+              accessibilityLabel="Quriora app icon"
+            />
             <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Create an Account</Text>
             <Text style={[styles.welcomeDesc, { color: colors.textSecondary }]}>
               Create a profile to save notes, organize bookmark tags, and track your daily reading goals.
@@ -221,23 +223,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  logoOutline: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
+  appIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 24,
+    borderWidth: 1,
+    boxShadow: '0 8px 22px rgba(0, 35, 28, 0.18)',
     marginBottom: 14,
-  },
-  logoCenter: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   welcomeTitle: {
     fontSize: 22,
