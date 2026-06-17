@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -97,6 +97,7 @@ export const ListenScreen = () => {
     isRepeatSurah,
     toggleRepeatSurah,
     sleepTimerEndsAt,
+    sleepTimerMode,
     setSleepTimer,
     audioProgress,
     currentTime,
@@ -107,6 +108,8 @@ export const ListenScreen = () => {
   const [surahs, setSurahs] = useState<SurahOption[]>([]);
   const [surahError, setSurahError] = useState('');
   const [selectedSurahId, setSelectedSurahId] = useState(currentSurahId ?? 1);
+  const [timerNow, setTimerNow] = useState(Date.now());
+  const [sleepTimerOpen, setSleepTimerOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -143,15 +146,46 @@ export const ListenScreen = () => {
     return playSurah(selectedSurahId, 1);
   };
 
-  const handleSleepTimer = () => {
-    Alert.alert('Sleep Timer', 'Stop recitation automatically after:', [
-      { text: 'Off', onPress: () => setSleepTimer(null) },
-      { text: '15 min', onPress: () => setSleepTimer(15) },
-      { text: '30 min', onPress: () => setSleepTimer(30) },
-      { text: '45 min', onPress: () => setSleepTimer(45) },
-      { text: '60 min', onPress: () => setSleepTimer(60) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const handlePrevious = async () => {
+    if (selectedIsCurrent) {
+      await prevAyah();
+    } else if (selectedSurahId > 1) {
+      await playSurah(selectedSurahId - 1, 1);
+    }
+  };
+
+  const handleNext = async () => {
+    if (selectedIsCurrent) {
+      await nextAyah();
+    } else if (selectedSurahId < 114) {
+      await playSurah(selectedSurahId + 1, 1);
+    }
+  };
+
+  const handleStop = async () => {
+    if (selectedIsCurrent) await stop();
+  };
+
+  useEffect(() => {
+    if (!sleepTimerEndsAt) return undefined;
+
+    const interval = setInterval(() => setTimerNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [sleepTimerEndsAt]);
+
+  const sleepTimerLabel = useMemo(() => {
+    if (sleepTimerMode === 'endOfSurah') return 'Sleep timer: End of current Surah';
+    if (!sleepTimerEndsAt) return null;
+
+    const remainingSeconds = Math.max(0, Math.ceil((sleepTimerEndsAt - timerNow) / 1000));
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    return `Sleep timer: ${minutes}:${String(seconds).padStart(2, '0')}`;
+  }, [sleepTimerEndsAt, sleepTimerMode, timerNow]);
+
+  const chooseSleepTimer = (timer: number | 'endOfSurah' | null) => {
+    setSleepTimer(timer);
+    setSleepTimerOpen(false);
   };
 
   return (
@@ -204,12 +238,12 @@ export const ListenScreen = () => {
         <View style={[styles.transportRow, compact && styles.transportRowCompact]}>
           <TouchableOpacity
             accessibilityLabel="Repeat Surah"
-            onPress={toggleRepeatSurah}
+            onPress={() => toggleRepeatSurah()}
             style={[styles.utilityCircle, { backgroundColor: isRepeatSurah ? colors.accentLight : colors.bgTertiary }]}
           >
             <Repeat2 size={18} color={isRepeatSurah ? colors.accent : colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity accessibilityLabel="Previous Ayah" disabled={!selectedIsCurrent} onPress={prevAyah} style={styles.transportButton}>
+          <TouchableOpacity accessibilityLabel="Previous Ayah" onPress={() => void handlePrevious()} style={styles.transportButton}>
             <SkipBack size={23} color={selectedIsCurrent ? colors.textPrimary : colors.textTertiary} />
           </TouchableOpacity>
           <TouchableOpacity
@@ -226,22 +260,70 @@ export const ListenScreen = () => {
               <Play size={27} color="#FFFFFF" fill="#FFFFFF" style={styles.playIcon} />
             )}
           </TouchableOpacity>
-          <TouchableOpacity accessibilityLabel="Next Ayah" disabled={!selectedIsCurrent} onPress={() => void nextAyah()} style={styles.transportButton}>
+          <TouchableOpacity accessibilityLabel="Next Ayah" onPress={() => void handleNext()} style={styles.transportButton}>
             <SkipForward size={23} color={selectedIsCurrent ? colors.textPrimary : colors.textTertiary} />
           </TouchableOpacity>
-          <TouchableOpacity accessibilityLabel="Stop recitation" disabled={!selectedIsCurrent} onPress={stop} style={[styles.utilityCircle, { backgroundColor: colors.bgTertiary }]}>
+          <TouchableOpacity accessibilityLabel="Stop recitation" disabled={!selectedIsCurrent} onPress={() => void handleStop()} style={[styles.utilityCircle, { backgroundColor: colors.bgTertiary }]}>
             <Square size={16} color={selectedIsCurrent ? colors.textSecondary : colors.textTertiary} fill={selectedIsCurrent ? colors.textSecondary : 'none'} />
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Sleep Timer"
-            onPress={handleSleepTimer}
-            style={[styles.utilityCircle, { backgroundColor: sleepTimerEndsAt ? colors.accentLight : colors.bgTertiary }]}
+            onPress={() => setSleepTimerOpen(true)}
+            style={[styles.utilityCircle, { backgroundColor: sleepTimerMode ? colors.accentLight : colors.bgTertiary }]}
           >
-            <Clock3 size={17} color={sleepTimerEndsAt ? colors.accent : colors.textSecondary} />
+            <Clock3 size={17} color={sleepTimerMode ? colors.accent : colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
+        {sleepTimerLabel ? (
+          <TouchableOpacity onPress={() => setSleepTimerOpen(true)} style={styles.sleepTimerStatus}>
+            <Text style={[styles.sleepTimerText, { color: colors.textSecondary }]}>{sleepTimerLabel}</Text>
+            <Text style={[styles.sleepTimerAction, { color: colors.accent }]}>Change</Text>
+          </TouchableOpacity>
+        ) : null}
+
       </View>
+
+      <Modal
+        transparent
+        visible={sleepTimerOpen}
+        animationType="fade"
+        onRequestClose={() => setSleepTimerOpen(false)}
+      >
+        <Pressable style={styles.timerOverlay} onPress={() => setSleepTimerOpen(false)}>
+          <Pressable style={[styles.timerSheet, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <Text style={[styles.timerTitle, { color: colors.textPrimary }]}>Sleep Timer</Text>
+            <Text style={[styles.timerSubtitle, { color: colors.textSecondary }]}>Stop recitation automatically after:</Text>
+            {[
+              { label: '5 minutes', value: 5 },
+              { label: '10 minutes', value: 10 },
+              { label: '15 minutes', value: 15 },
+              { label: '30 minutes', value: 30 },
+              { label: '45 minutes', value: 45 },
+            ].map(option => (
+              <TouchableOpacity
+                key={option.label}
+                onPress={() => chooseSleepTimer(option.value)}
+                style={[styles.timerOption, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.timerOptionText, { color: colors.textPrimary }]}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => chooseSleepTimer('endOfSurah')}
+              style={[styles.timerOption, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.timerOptionText, { color: colors.textPrimary }]}>End of current Surah</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => chooseSleepTimer(null)}
+              style={[styles.timerOption, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.timerOptionText, { color: colors.accent }]}>Cancel timer</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.sectionHeader}>
         <View>
@@ -344,6 +426,15 @@ const styles = StyleSheet.create({
   transportButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
   playButton: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center', boxShadow: '0 7px 18px rgba(0,0,0,0.14)' },
   playIcon: { marginLeft: 3 },
+  sleepTimerStatus: { minHeight: 32, marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  sleepTimerText: { fontSize: 10, fontWeight: '700' },
+  sleepTimerAction: { fontSize: 10, fontWeight: '900' },
+  timerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.28)', justifyContent: 'center', padding: 24 },
+  timerSheet: { width: '100%', maxWidth: 360, alignSelf: 'center', borderRadius: 22, borderWidth: 1, padding: 18, gap: 8 },
+  timerTitle: { fontSize: 18, fontWeight: '900', textAlign: 'center' },
+  timerSubtitle: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginBottom: 6 },
+  timerOption: { minHeight: 44, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  timerOptionText: { fontSize: 13, fontWeight: '800' },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 },
   sectionEyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: 1 },
   sectionTitle: { fontSize: 17, fontWeight: '800', marginTop: 3 },

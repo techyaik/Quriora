@@ -45,6 +45,7 @@ interface AudioContextType {
   loadingSurahId: number | null;
   loadingAyahNumber: number | null;
   sleepTimerEndsAt: number | null;
+  sleepTimerMode: 'duration' | 'endOfSurah' | null;
   reciters: Reciter[];
   playAyah: (surahId: number, ayahNumber: number, reciterId?: number) => Promise<void>;
   playSurah: (surahId: number, startAyahNumber?: number, reciterId?: number) => Promise<void>;
@@ -58,7 +59,7 @@ interface AudioContextType {
   setVolume: (volume: number) => Promise<void>;
   toggleRepeatAyah: () => void;
   toggleRepeatSurah: () => void;
-  setSleepTimer: (minutes: number | null) => void;
+  setSleepTimer: (timer: number | 'endOfSurah' | null) => void;
   changeReciter: (id: number) => Promise<void>;
   lastError?: string | null;
   clearError: () => void;
@@ -82,6 +83,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [lastError, setLastError] = useState<string | null>(null);
   const [surahNames, setSurahNames] = useState<Record<number, string>>({});
   const [sleepTimerEndsAt, setSleepTimerEndsAt] = useState<number | null>(null);
+  const [sleepTimerMode, setSleepTimerMode] = useState<'duration' | 'endOfSurah' | null>(null);
 
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const playerStatus = useAudioPlayerStatus(player);
@@ -104,6 +106,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const pendingAdvanceRef = useRef(false);
   const playbackTokenRef = useRef(0);
   const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sleepTimerModeRef = useRef<'duration' | 'endOfSurah' | null>(null);
 
   const updateQueue = (items: PlayQueueItem[]) => {
     queueRef.current = items;
@@ -120,6 +123,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateLoadingAyah = (value: { surahId: number; ayahNumber: number } | null) => {
     setLoadingAyah(value);
+  };
+
+  const clearSleepTimer = () => {
+    if (sleepTimerRef.current) {
+      clearTimeout(sleepTimerRef.current);
+      sleepTimerRef.current = null;
+    }
+    sleepTimerModeRef.current = null;
+    setSleepTimerMode(null);
+    setSleepTimerEndsAt(null);
   };
 
   // Initialize Audio configurations
@@ -232,8 +245,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const activeItem = activeIndex >= 0 ? activeQueue[activeIndex] : null;
     const isFullSurahTrack = activeQueue.length === 1 && activeItem?.trackType === 'surah';
 
-    if (isRepeatAyahRef.current || (isRepeatSurahRef.current && isFullSurahTrack)) {
+    if (sleepTimerModeRef.current === 'endOfSurah') {
+      clearSleepTimer();
+      void stop();
+    } else if (isRepeatAyahRef.current || (isRepeatSurahRef.current && isFullSurahTrack)) {
       replayCurrentTrack();
+    } else if (isRepeatSurahRef.current && currentSurahIdRef.current) {
+      void playSurah(currentSurahIdRef.current, 1);
     } else {
       try {
         void nextAyah('auto');
@@ -421,11 +439,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const stop = async () => {
-    if (sleepTimerRef.current) {
-      clearTimeout(sleepTimerRef.current);
-      sleepTimerRef.current = null;
-    }
-    setSleepTimerEndsAt(null);
+    clearSleepTimer();
     player.pause();
     if (playerStatus.isLoaded) await player.seekTo(0);
     player.clearLockScreenControls();
@@ -444,23 +458,27 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setSleepTimer = (minutes: number | null) => {
-    if (sleepTimerRef.current) {
-      clearTimeout(sleepTimerRef.current);
-      sleepTimerRef.current = null;
-    }
-
     if (!minutes || minutes <= 0) {
-      setSleepTimerEndsAt(null);
+      clearSleepTimer();
       return;
     }
 
+    clearSleepTimer();
+
     const endsAt = Date.now() + minutes * 60 * 1000;
+    sleepTimerModeRef.current = 'duration';
+    setSleepTimerMode('duration');
     setSleepTimerEndsAt(endsAt);
     sleepTimerRef.current = setTimeout(() => {
       void stop();
-      setSleepTimerEndsAt(null);
-      sleepTimerRef.current = null;
     }, minutes * 60 * 1000);
+  };
+
+  const setEndOfSurahSleepTimer = () => {
+    clearSleepTimer();
+    sleepTimerModeRef.current = 'endOfSurah';
+    setSleepTimerMode('endOfSurah');
+    setSleepTimerEndsAt(null);
   };
 
   useEffect(() => {
@@ -596,6 +614,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       loadingSurahId,
       loadingAyahNumber,
       sleepTimerEndsAt,
+      sleepTimerMode,
       reciters,
       playAyah,
       playSurah,
@@ -609,7 +628,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setVolume,
       toggleRepeatAyah,
       toggleRepeatSurah,
-      setSleepTimer,
+      setSleepTimer: (timer) => {
+        if (timer === null) {
+          clearSleepTimer();
+        } else if (timer === 'endOfSurah') {
+          setEndOfSurahSleepTimer();
+        } else {
+          setSleepTimer(timer);
+        }
+      },
       changeReciter,
       lastError,
       clearError

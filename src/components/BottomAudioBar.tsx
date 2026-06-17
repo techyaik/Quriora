@@ -78,7 +78,7 @@ export const BottomAudioBar = ({ compact = false }: BottomAudioBarProps) => {
 
         <View style={styles.controls}>
           {!compact ? (
-            <Pressable accessibilityLabel="Previous Ayah" onPress={prevAyah} style={styles.skipButton}>
+            <Pressable accessibilityLabel="Previous Ayah" onPress={() => void prevAyah()} style={styles.skipButton}>
               <SkipBack size={17} color={colors.textSecondary} />
             </Pressable>
           ) : null}
