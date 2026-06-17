@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { getErrorMessage } from '../services/api';
@@ -6,6 +6,7 @@ import {
   fallbackReciter,
   fetchFallbackSurahs,
   fetchQuranAyahAudio,
+  fetchQuranFullSurahAudio,
   fetchQuranSurahAudio,
   getFallbackSurahAudioUrl,
 } from '../services/quranFallback';
@@ -40,6 +41,8 @@ interface AudioContextType {
   duration: number;
   currentSurahName: string | null;
   isLoading: boolean;
+  loadingSurahId: number | null;
+  loadingAyahNumber: number | null;
   reciters: Reciter[];
   playAyah: (surahId: number, ayahNumber: number, reciterId?: number) => Promise<void>;
   playSurah: (surahId: number, startAyahNumber?: number, reciterId?: number) => Promise<void>;
@@ -76,12 +79,43 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [lastError, setLastError] = useState<string | null>(null);
   const [surahNames, setSurahNames] = useState<Record<number, string>>({});
 
-  // Queue state for playing full surahs
-  const [queue, setQueue] = useState<PlayQueueItem[]>([]);
-  const [queueIndex, setQueueIndex] = useState<number>(-1);
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const playerStatus = useAudioPlayerStatus(player);
+  const [loadingAyah, setLoadingAyah] = useState<{ surahId: number; ayahNumber: number } | null>(null);
   const isLoading = isPreparing || playerStatus.isBuffering;
+  const loadingSurahId = loadingAyah?.surahId ?? (playerStatus.isBuffering ? currentSurahId : null);
+  const loadingAyahNumber = loadingAyah?.ayahNumber ?? (playerStatus.isBuffering ? currentAyahNumber : null);
+  const queueRef = useRef<PlayQueueItem[]>([]);
+  const queueIndexRef = useRef(-1);
+  const currentSurahIdRef = useRef<number | null>(null);
+  const currentReciterIdRef = useRef(1);
+  const playbackSpeedRef = useRef(1);
+  const volumeRef = useRef(0.8);
+  const isRepeatAyahRef = useRef(false);
+  const isRepeatSurahRef = useRef(false);
+  const recitersRef = useRef<Reciter[]>([]);
+  const surahNamesRef = useRef<Record<number, string>>({});
+  const finishHandledRef = useRef(false);
+  const queueLoadingRef = useRef(false);
+  const pendingAdvanceRef = useRef(false);
+  const playbackTokenRef = useRef(0);
+
+  const updateQueue = (items: PlayQueueItem[]) => {
+    queueRef.current = items;
+  };
+
+  const updateQueueIndex = (index: number) => {
+    queueIndexRef.current = index;
+  };
+
+  const updateCurrentSurahId = (surahId: number | null) => {
+    currentSurahIdRef.current = surahId;
+    setCurrentSurahId(surahId);
+  };
+
+  const updateLoadingAyah = (value: { surahId: number; ayahNumber: number } | null) => {
+    setLoadingAyah(value);
+  };
 
   // Initialize Audio configurations
   useEffect(() => {
@@ -129,15 +163,50 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [playerStatus.currentTime, playerStatus.duration, playerStatus.isBuffering, playerStatus.playing]);
 
   useEffect(() => {
+    currentSurahIdRef.current = currentSurahId;
+  }, [currentSurahId]);
+
+  useEffect(() => {
+    currentReciterIdRef.current = currentReciterId;
+  }, [currentReciterId]);
+
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed;
+  }, [playbackSpeed]);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    isRepeatAyahRef.current = isRepeatAyah;
+  }, [isRepeatAyah]);
+
+  useEffect(() => {
+    isRepeatSurahRef.current = isRepeatSurah;
+  }, [isRepeatSurah]);
+
+  useEffect(() => {
+    recitersRef.current = reciters;
+  }, [reciters]);
+
+  useEffect(() => {
+    surahNamesRef.current = surahNames;
+  }, [surahNames]);
+
+  useEffect(() => {
+    if (isPreparing && (playerStatus.playing || playerStatus.error || playerStatus.didJustFinish)) {
+      setIsPreparing(false);
+      updateLoadingAyah(null);
+    }
+  }, [isPreparing, playerStatus.didJustFinish, playerStatus.error, playerStatus.playing]);
+
+  useEffect(() => {
     if (playerStatus.error) setLastError(playerStatus.error);
   }, [playerStatus.error]);
 
   const handleAudioEnded = () => {
-    if (process.env.EXPO_OS === 'web') {
-      setIsPlaying(false);
-      return;
-    }
-    if (isRepeatAyah) {
+    if (isRepeatAyahRef.current) {
       void player.seekTo(0).then(() => player.play()).catch(err => console.warn('Error replaying ayah:', err));
     } else {
       try {
@@ -150,28 +219,41 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const playSoundUrl = async (url: string, surahId: number, ayahNumber: number, reciterId: number) => {
     setIsPreparing(true);
+    updateLoadingAyah({ surahId, ayahNumber });
     try {
       if (!url || typeof url !== 'string') {
         throw new Error('Invalid audio URL');
       }
 
+      finishHandledRef.current = false;
       player.replace({ uri: url });
-      player.playbackRate = playbackSpeed;
+      player.playbackRate = playbackSpeedRef.current;
       player.shouldCorrectPitch = true;
-      player.volume = volume;
-      const reciter = reciters.find(item => item.id === reciterId);
-      player.setActiveForLockScreen(true, {
-        title: `${surahNames[surahId] ?? `Surah ${surahId}`} · Ayah ${ayahNumber}`,
-        artist: reciter?.nameEnglish ?? 'Quriora',
-        albumTitle: 'Quran Recitation',
-      });
+      player.volume = volumeRef.current;
+      const reciter = recitersRef.current.find(item => item.id === reciterId);
+      try {
+        player.setActiveForLockScreen(true, {
+          title: `${surahNamesRef.current[surahId] ?? `Surah ${surahId}`} · Ayah ${ayahNumber}`,
+          artist: reciter?.nameEnglish ?? 'Quriora',
+          albumTitle: 'Quran Recitation',
+        });
+      } catch (metadataError) {
+        console.warn('Failed to update audio metadata:', metadataError);
+      }
       player.play();
       setLastError(null);
       setIsPlaying(true);
     } catch (err) {
-      console.warn('Failed to create sound:', err);
+      console.warn('Failed to create sound:', {
+        surahId,
+        ayahNumber,
+        reciterId,
+        url,
+        error: err,
+      });
       setIsPlaying(false);
-      setQueue([]);
+      updateQueue([]);
+      updateLoadingAyah(null);
       setLastError(getErrorMessage(err, 'Unable to play this recitation.'));
     } finally {
       setIsPreparing(false);
@@ -179,14 +261,22 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const playAyah = async (surahId: number, ayahNumber: number, reciterId?: number) => {
+    if (loadingSurahId === surahId && loadingAyahNumber === ayahNumber) return;
+
+    const playbackToken = playbackTokenRef.current + 1;
+    playbackTokenRef.current = playbackToken;
+    queueLoadingRef.current = false;
+    pendingAdvanceRef.current = false;
     const activeReciterId = reciterId || currentReciterId;
     setIsPreparing(true);
+    updateLoadingAyah({ surahId, ayahNumber });
     try {
       const { audioUrl, ayahId } = await fetchQuranAyahAudio(surahId, ayahNumber);
+      if (playbackToken !== playbackTokenRef.current) return;
 
-      setQueue([{ ayahId, ayahNumber, audioUrl, timestamps: null }]);
-      setQueueIndex(0);
-      setCurrentSurahId(surahId);
+      updateQueue([{ ayahId, ayahNumber, audioUrl, timestamps: null }]);
+      updateQueueIndex(0);
+      updateCurrentSurahId(surahId);
       setCurrentAyahId(ayahId);
       setCurrentAyahNumber(ayahNumber);
 
@@ -194,41 +284,70 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (err) {
       console.warn('Failed to play ayah:', err);
       setLastError(getErrorMessage(err, 'Unable to load ayah audio.'));
+      updateLoadingAyah(null);
     } finally {
       setIsPreparing(false);
     }
   };
 
   const playSurah = async (surahId: number, startAyahNumber: number = 1, reciterId?: number) => {
+    if (loadingSurahId === surahId && loadingAyahNumber === startAyahNumber) return;
+
+    const playbackToken = playbackTokenRef.current + 1;
+    playbackTokenRef.current = playbackToken;
+    queueLoadingRef.current = true;
+    pendingAdvanceRef.current = false;
     const activeReciterId = reciterId || currentReciterId;
     setIsPreparing(true);
+    updateLoadingAyah({ surahId, ayahNumber: startAyahNumber });
     try {
-      if (process.env.EXPO_OS === 'web') {
-        const audioUrl = getFallbackSurahAudioUrl(surahId);
-        setQueue([{ ayahId: surahId, ayahNumber: startAyahNumber, audioUrl, timestamps: null }]);
-        setQueueIndex(0);
-        setCurrentSurahId(surahId);
-        setCurrentAyahId(surahId);
-        setCurrentAyahNumber(startAyahNumber);
-        await playSoundUrl(audioUrl, surahId, startAyahNumber, activeReciterId);
+      if (startAyahNumber === 1) {
+        const fullSurahAudio = await fetchQuranFullSurahAudio(surahId);
+        if (playbackToken !== playbackTokenRef.current) return;
+
+        updateQueue([fullSurahAudio]);
+        updateQueueIndex(0);
+        queueLoadingRef.current = false;
+        updateCurrentSurahId(surahId);
+        setCurrentAyahId(fullSurahAudio.ayahId);
+        setCurrentAyahNumber(1);
+
+        await playSoundUrl(fullSurahAudio.audioUrl, surahId, 1, activeReciterId);
         return;
       }
 
-      const surahQueue = await fetchQuranSurahAudio(surahId);
-      if (surahQueue.length > 0) {
-        setQueue(surahQueue);
-        setCurrentSurahId(surahId);
+      const { audioUrl, ayahId } = await fetchQuranAyahAudio(surahId, startAyahNumber);
+      if (playbackToken !== playbackTokenRef.current) return;
 
-        const startIndex = surahQueue.findIndex(item => item.ayahNumber === startAyahNumber);
-        const activeIndex = startIndex !== -1 ? startIndex : 0;
-        setQueueIndex(activeIndex);
+      updateQueue([{ ayahId, ayahNumber: startAyahNumber, audioUrl, timestamps: null }]);
+      updateQueueIndex(0);
+      updateCurrentSurahId(surahId);
+      setCurrentAyahId(ayahId);
+      setCurrentAyahNumber(startAyahNumber);
 
-        const currentItem = surahQueue[activeIndex];
-        setCurrentAyahId(currentItem.ayahId);
-        setCurrentAyahNumber(currentItem.ayahNumber);
+      await playSoundUrl(audioUrl, surahId, startAyahNumber, activeReciterId);
 
-        await playSoundUrl(currentItem.audioUrl, surahId, currentItem.ayahNumber, activeReciterId);
-      } else throw new Error('Surah audio is unavailable.');
+      fetchQuranSurahAudio(surahId)
+        .then(surahQueue => {
+          if (playbackToken !== playbackTokenRef.current) return;
+          if (surahQueue.length === 0) throw new Error('Surah audio is unavailable.');
+
+          const startIndex = surahQueue.findIndex(item => item.ayahNumber === startAyahNumber);
+          const activeIndex = startIndex !== -1 ? startIndex : 0;
+          updateQueue(surahQueue);
+          updateQueueIndex(activeIndex);
+          queueLoadingRef.current = false;
+
+          if (pendingAdvanceRef.current) {
+            pendingAdvanceRef.current = false;
+            void nextAyah();
+          }
+        })
+        .catch(err => {
+          if (playbackToken !== playbackTokenRef.current) return;
+          queueLoadingRef.current = false;
+          setLastError(getErrorMessage(err, 'Unable to load the remaining Surah audio.'));
+        });
     } catch (err) {
       try {
         const audioUrl = getFallbackSurahAudioUrl(surahId);
@@ -238,15 +357,24 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           audioUrl,
           timestamps: null,
         }];
-        setQueue(fallbackQueue);
-        setQueueIndex(0);
-        setCurrentSurahId(surahId);
+        updateQueue(fallbackQueue);
+        updateQueueIndex(0);
+        queueLoadingRef.current = false;
+        updateCurrentSurahId(surahId);
         setCurrentAyahId(surahId);
         setCurrentAyahNumber(startAyahNumber);
         await playSoundUrl(audioUrl, surahId, startAyahNumber, activeReciterId);
       } catch (fallbackError) {
-        console.warn('Failed to play surah:', err, fallbackError);
+        console.warn('Failed to play surah:', {
+          surahId,
+          startAyahNumber,
+          reciterId: activeReciterId,
+          error: err,
+          fallbackError,
+        });
         setLastError(getErrorMessage(err, 'Unable to load surah audio.'));
+        updateLoadingAyah(null);
+        queueLoadingRef.current = false;
       }
     } finally {
       setIsPreparing(false);
@@ -255,6 +383,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const pause = async () => {
     player.pause();
+    updateLoadingAyah(null);
+    setIsPreparing(false);
     setIsPlaying(false);
   };
 
@@ -267,29 +397,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     player.pause();
     if (playerStatus.isLoaded) await player.seekTo(0);
     player.clearLockScreenControls();
-    setQueue([]);
-    setQueueIndex(-1);
+    playbackTokenRef.current += 1;
+    queueLoadingRef.current = false;
+    pendingAdvanceRef.current = false;
+    updateQueue([]);
+    updateQueueIndex(-1);
+    updateLoadingAyah(null);
     setCurrentAyahId(null);
     setCurrentAyahNumber(null);
-    setCurrentSurahId(null);
+    updateCurrentSurahId(null);
     setAudioProgress(0);
+    setIsPreparing(false);
     setIsPlaying(false);
   };
 
   const nextAyah = async () => {
-    if (queue.length === 0 || queueIndex === -1) return;
+    const activeQueue = queueRef.current;
+    const activeIndex = queueIndexRef.current;
+    if (activeQueue.length === 0 || activeIndex === -1) return;
 
-    if (queueIndex + 1 < queue.length) {
-      const nextIndex = queueIndex + 1;
-      setQueueIndex(nextIndex);
-      const item = queue[nextIndex];
+    if (activeIndex + 1 < activeQueue.length) {
+      const nextIndex = activeIndex + 1;
+      updateQueueIndex(nextIndex);
+      const item = activeQueue[nextIndex];
       setCurrentAyahId(item.ayahId);
       setCurrentAyahNumber(item.ayahNumber);
 
-      await playSoundUrl(item.audioUrl, currentSurahId ?? 1, item.ayahNumber, currentReciterId);
+      await playSoundUrl(item.audioUrl, currentSurahIdRef.current ?? 1, item.ayahNumber, currentReciterIdRef.current);
     } else {
-      if (isRepeatSurah && currentSurahId) {
-        await playSurah(currentSurahId, 1);
+      if (queueLoadingRef.current) {
+        pendingAdvanceRef.current = true;
+      } else if (isRepeatSurahRef.current && currentSurahIdRef.current) {
+        await playSurah(currentSurahIdRef.current, 1);
       } else {
         await stop();
       }
@@ -297,22 +436,29 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   useEffect(() => {
-    if (playerStatus.didJustFinish) {
-      void handleAudioEnded();
-    }
-  }, [playerStatus.didJustFinish]);
+    const subscription = player.addListener('playbackStatusUpdate', status => {
+      if (status.didJustFinish && !finishHandledRef.current) {
+        finishHandledRef.current = true;
+        handleAudioEnded();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [player]);
 
   const prevAyah = async () => {
-    if (queue.length === 0 || queueIndex === -1) return;
+    const activeQueue = queueRef.current;
+    const activeIndex = queueIndexRef.current;
+    if (activeQueue.length === 0 || activeIndex === -1) return;
 
-    if (queueIndex - 1 >= 0) {
-      const prevIndex = queueIndex - 1;
-      setQueueIndex(prevIndex);
-      const item = queue[prevIndex];
+    if (activeIndex - 1 >= 0) {
+      const prevIndex = activeIndex - 1;
+      updateQueueIndex(prevIndex);
+      const item = activeQueue[prevIndex];
       setCurrentAyahId(item.ayahId);
       setCurrentAyahNumber(item.ayahNumber);
 
-      await playSoundUrl(item.audioUrl, currentSurahId ?? 1, item.ayahNumber, currentReciterId);
+      await playSoundUrl(item.audioUrl, currentSurahIdRef.current ?? 1, item.ayahNumber, currentReciterIdRef.current);
     }
   };
 
@@ -379,6 +525,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       duration: playerStatus.duration,
       currentSurahName: currentSurahId ? (surahNames[currentSurahId] ?? `Surah ${currentSurahId}`) : null,
       isLoading,
+      loadingSurahId,
+      loadingAyahNumber,
       reciters,
       playAyah,
       playSurah,

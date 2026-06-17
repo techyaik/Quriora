@@ -19,7 +19,7 @@ export default function ExploreLayout() {
       <Stack.Screen
         name="index"
         options={{
-          title: 'Explore',
+          headerShown: false,
         }}
       />
       <Stack.Screen name="search" options={{ title: 'Quran Search' }} />

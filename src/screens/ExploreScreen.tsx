@@ -11,14 +11,18 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   ChevronRight,
   MessageSquareText,
   Search,
+  Settings,
   X,
 } from 'lucide-react-native';
 
+import { MenuIcon } from '../components/MenuIcon';
+import { useDrawerContext } from '../context/DrawerContext';
 import { useThemeContext } from '../context/ThemeContext';
 import {
   fetchHadithChapter,
@@ -61,6 +65,8 @@ const getPalette = (theme: 'light' | 'dark' | 'sepia'): ExplorePalette => {
 
 export const ExploreScreen: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { openDrawer } = useDrawerContext();
   const { theme } = useThemeContext();
   const palette = getPalette(theme);
 
@@ -178,8 +184,18 @@ export const ExploreScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.hero, { backgroundColor: palette.accent }]}>
+        <View style={[styles.hero, { backgroundColor: palette.accent, paddingTop: insets.top + 12 }]}>
           <View style={[styles.heroGlow, { backgroundColor: '#FFFFFF', opacity: 0.15 }]} />
+          
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={openDrawer} style={styles.headerButton} activeOpacity={0.7}>
+              <MenuIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/explore/settings')} style={styles.headerButton}>
+              <Settings size={20} color="rgba(255, 255, 255, 0.75)" />
+            </TouchableOpacity>
+          </View>
+
           <Text style={[styles.heroEyebrow, { color: 'rgba(255, 255, 255, 0.75)' }]}>DISCOVER AND REFLECT</Text>
           <Text style={[styles.heroSubtitle, { color: 'rgba(255, 255, 255, 0.85)' }]}>
             Search the Quran, study authentic Hadith, and continue your learning journey.
@@ -405,7 +421,9 @@ export const ExploreScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContent: { paddingBottom: 28 },
-  hero: { backgroundColor: '#0F1D1A', paddingHorizontal: 20, paddingTop: 22, paddingBottom: 26, overflow: 'hidden' },
+  hero: { backgroundColor: '#0F1D1A', paddingHorizontal: 20, paddingBottom: 26, overflow: 'hidden' },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   heroGlow: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#1A7A5E', opacity: 0.09, right: -70, top: -100 },
   heroEyebrow: { color: '#49B994', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
   heroTitle: { color: '#FFFFFF', fontSize: 30, fontWeight: '800', letterSpacing: -0.7, marginTop: 5 },

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useThemeContext } from '../context/ThemeContext';
 import { formatTajweed } from '../utils/tajweed';
@@ -13,7 +13,7 @@ interface AyahItem {
 }
 interface AyahCardProps {
   ayah: AyahItem; surahId: number; surahNameEnglish: string;
-  isPlaying: boolean; isBookmarked: boolean;
+  isPlaying: boolean; isLoading?: boolean; isBookmarked: boolean;
   onPlay: (ayahNumber: number) => void;
   onBookmark: (ayahId: number) => void;
   onOpenTafseer: (ayahId: number, ayahNumber: number) => void;
@@ -23,7 +23,7 @@ const toArabicDigits = (num: number) =>
   num.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
 
 export const AyahCard = React.memo(({
-  ayah, surahId, surahNameEnglish, isPlaying, isBookmarked,
+  ayah, surahId, surahNameEnglish, isPlaying, isLoading = false, isBookmarked,
   onPlay, onBookmark, onOpenTafseer
 }: AyahCardProps) => {
   const { fontSize, showTajweed, showTranslation, theme } = useThemeContext();
@@ -110,21 +110,25 @@ export const AyahCard = React.memo(({
         {/* Play */}
         <TouchableOpacity
           onPress={() => onPlay(ayah.ayahNumber)}
+          disabled={isLoading}
           style={[
             styles.actionBtn,
             {
               backgroundColor: isPlaying ? colors.accent : 'transparent',
               borderColor: isPlaying ? colors.accent : colors.border,
+              opacity: isLoading ? 0.78 : 1,
             }
           ]}
         >
-          {isPlaying ? (
+          {isLoading ? (
+            <ActivityIndicator size="small" color={isPlaying ? '#fff' : colors.textSecondary} />
+          ) : isPlaying ? (
             <Pause size={14} color="#fff" />
           ) : (
             <Play size={14} color={colors.textSecondary} />
           )}
           <Text style={[styles.actionLabel, { color: isPlaying ? '#fff' : colors.textSecondary }]}>
-            {isPlaying ? 'Playing' : 'Play'}
+            {isLoading ? 'Loading' : isPlaying ? 'Playing' : 'Play'}
           </Text>
         </TouchableOpacity>
 

@@ -53,7 +53,16 @@ export const SurahScreen: React.FC = () => {
 
   const { user, isGuest } = useAuthContext();
   const { fontSize, theme } = useThemeContext();
-  const { isPlaying, currentAyahNumber, currentSurahId, playSurah, pause, resume } = useAudioContext();
+  const {
+    isPlaying,
+    currentAyahNumber,
+    currentSurahId,
+    loadingAyahNumber,
+    loadingSurahId,
+    playSurah,
+    pause,
+    resume,
+  } = useAudioContext();
   const colors = themeColors[theme];
   const listRef = useRef<FlatList<AyahItem>>(null);
   const { markAyahRead, addReadingSeconds } = useReadingGoal();
@@ -157,9 +166,10 @@ export const SurahScreen: React.FC = () => {
 
   const handlePlay = useCallback((ayahNumber: number) => {
     if (surah) {
-      playSurah(surah.id, ayahNumber);
+      if (loadingSurahId === surah.id && loadingAyahNumber === ayahNumber) return;
+      void playSurah(surah.id, ayahNumber);
     }
-  }, [surah, playSurah]);
+  }, [loadingAyahNumber, loadingSurahId, surah, playSurah]);
 
   const handleBookmark = useCallback(async (ayahId: number) => {
     try {
@@ -214,13 +224,14 @@ export const SurahScreen: React.FC = () => {
         surahId={surah.id}
         surahNameEnglish={surah.nameEnglish}
         isPlaying={isPlaying && currentSurahId === surah.id && currentAyahNumber === item.ayahNumber}
+        isLoading={loadingSurahId === surah.id && loadingAyahNumber === item.ayahNumber}
         isBookmarked={bookmarks.includes(item.id)}
         onPlay={handlePlay}
         onBookmark={handleBookmark}
         onOpenTafseer={handleOpenTafseer}
       />
     );
-  }, [surah, isPlaying, currentSurahId, currentAyahNumber, bookmarks, handlePlay, handleBookmark, handleOpenTafseer]);
+  }, [surah, isPlaying, currentSurahId, currentAyahNumber, loadingSurahId, loadingAyahNumber, bookmarks, handlePlay, handleBookmark, handleOpenTafseer]);
 
   if (loading) {
     return (
@@ -326,6 +337,7 @@ export const SurahScreen: React.FC = () => {
             initialNumToRender={8}
             maxToRenderPerBatch={8}
             windowSize={7}
+            updateCellsBatchingPeriod={60}
             removeClippedSubviews={process.env.EXPO_OS !== 'web'}
           />
         ) : readingMode === 'continuous' ? (

@@ -214,3 +214,53 @@ export const fetchQuranSurahAudio = async (surahId: number) => {
 };
 
 export const getFallbackSurahAudioUrl = (surahId: number) => `${QURAN_AUDIO_URL}/${surahId}.mp3`;
+
+export const validateQuranAudioUrl = async (audioUrl: string) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await globalThis.fetch(audioUrl, {
+      method: 'HEAD',
+      headers: { Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.8' },
+      signal: controller.signal,
+    });
+    const contentType = response.headers.get('content-type') ?? '';
+    const contentLength = Number(response.headers.get('content-length') ?? 0);
+
+    if (!response.ok) {
+      throw new Error(`Audio URL failed (${response.status})`);
+    }
+    if (contentType && !contentType.toLowerCase().startsWith('audio/')) {
+      throw new Error(`Audio URL returned ${contentType}`);
+    }
+    if (contentLength > 0 && contentLength < 10000) {
+      throw new Error('Audio URL returned an unexpectedly small file.');
+    }
+
+    return {
+      status: response.status,
+      contentType,
+      contentLength,
+      url: response.url || audioUrl,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+export const fetchQuranFullSurahAudio = async (surahId: number) => {
+  if (!Number.isInteger(surahId) || surahId < 1 || surahId > 114) {
+    throw new Error(`Invalid Surah number: ${surahId}`);
+  }
+
+  const audioUrl = getFallbackSurahAudioUrl(surahId);
+  const validation = await validateQuranAudioUrl(audioUrl);
+
+  return {
+    ayahId: surahId,
+    ayahNumber: 1,
+    audioUrl: validation.url,
+    timestamps: null,
+  };
+};

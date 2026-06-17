@@ -36,8 +36,8 @@ export default function TabLayout() {
       <NativeTabs.Trigger name="home" disableTransparentOnScrollEdge>
         <NativeTabs.Trigger.Icon
           src={{
-            default: <Home size={30} color={colors.textSecondary} />,
-            selected: <Home size={37} color={colors.accent} />,
+            default: <Home size={28} color={colors.textSecondary} />,
+            selected: <Home size={32} color={colors.accent} />,
           }}
         />
         <NativeTabs.Trigger.Label

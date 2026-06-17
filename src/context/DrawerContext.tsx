@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ArrowRight, Share2, Heart, Globe, Star, MessageCircle, Bug, Info, Book } from 'lucide-react-native';
 import { useThemeContext } from './ThemeContext';
 import { themeColors } from '../styles/theme';
-import { type Href, useRouter } from 'expo-router';
+import { type Href, usePathname, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { getStoreUrl, releaseLinks } from '../config/release';
 
@@ -49,6 +49,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
   const router = useRouter();
+  const pathname = usePathname();
   const { width: screenWidth } = useWindowDimensions();
 
   const drawerWidth = Math.min(screenWidth * 0.86, 390);
@@ -106,7 +107,13 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const navigateAndClose = (path: Href) => {
     closeDrawer();
-    setTimeout(() => router.push(path), 300);
+    setTimeout(() => {
+      if (typeof path === 'string') {
+        router.push({ pathname: path, params: { returnTo: pathname || '/home' } } as Href);
+      } else {
+        router.push(path);
+      }
+    }, 300);
   };
 
   const openURL = async (url: string) => {

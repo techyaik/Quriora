@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { ArrowLeft, Settings } from 'lucide-react-native';
 import { useDrawerContext } from '../context/DrawerContext';
 import { useThemeContext } from '../context/ThemeContext';
@@ -18,6 +18,9 @@ interface SharedHeaderProps {
 export const SharedHeader: React.FC<SharedHeaderProps> = ({ options, route, navigation, back }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const isReturningRef = useRef(false);
   const { openDrawer } = useDrawerContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
@@ -31,9 +34,39 @@ export const SharedHeader: React.FC<SharedHeaderProps> = ({ options, route, navi
 
   // Home screen right settings color
   const settingsIconColor = isHome ? '#FFFFFF' : colors.textPrimary;
+  const routeReturnTo = route?.params?.returnTo;
+  const rawReturnTo = Array.isArray(routeReturnTo)
+    ? routeReturnTo[0]
+    : routeReturnTo ?? (Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo);
+  const returnTo = rawReturnTo && rawReturnTo !== pathname ? rawReturnTo : null;
+
+  const returnToSourceScreen = useCallback(() => {
+    if (!returnTo) return;
+
+    isReturningRef.current = true;
+    try {
+      navigation.reset({ index: 0, routes: [{ name: 'index' }] });
+    } catch {
+      // Keep returning even if the current navigator cannot be reset.
+    }
+    router.replace(returnTo as Href);
+  }, [navigation, returnTo, router]);
+
+  useEffect(() => {
+    if (!returnTo || typeof navigation.addListener !== 'function') return undefined;
+
+    return navigation.addListener('beforeRemove', (event: any) => {
+      if (isReturningRef.current) return;
+
+      event.preventDefault();
+      returnToSourceScreen();
+    });
+  }, [navigation, returnTo, returnToSourceScreen]);
 
   const handleBack = () => {
-    if (navigation.canGoBack()) {
+    if (returnTo) {
+      returnToSourceScreen();
+    } else if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
       router.replace('/home');

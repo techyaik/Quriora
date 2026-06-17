@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
-  ScrollView
+  ScrollView,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -77,7 +78,7 @@ export const RegisterScreen: React.FC = () => {
   return (
     <SafeAreaView style={[globalStyles.safeArea, { backgroundColor: colors.bgPrimary }]} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
-        behavior={process.env.EXPO_OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -87,12 +88,16 @@ export const RegisterScreen: React.FC = () => {
         >
           {/* Logo/Illustration */}
           <View style={styles.logoContainer}>
-            <Image
-              source={require('../../assets/icon.png')}
-              resizeMode="contain"
-              style={[styles.appIcon, { borderColor: colors.border }]}
-              accessibilityLabel="Quriora app icon"
-            />
+            <View style={[styles.iconFrame, { borderColor: colors.border, backgroundColor: colors.bgCard }]}>
+              <View style={[styles.iconInnerFrame, { backgroundColor: colors.accentLight }]}>
+                <Image
+                  source={require('../../assets/icon.png')}
+                  resizeMode="contain"
+                  style={styles.appIcon}
+                  accessibilityLabel="Quriora app icon"
+                />
+              </View>
+            </View>
             <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Create an Account</Text>
             <Text style={[styles.welcomeDesc, { color: colors.textSecondary }]}>
               Create a profile to save notes, organize bookmark tags, and track your daily reading goals.
@@ -223,13 +228,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  iconFrame: {
+    width: 104,
+    height: 104,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    padding: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#00231C',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0 6px 18px rgba(0, 35, 28, 0.10)',
+      }
+    }),
+    marginBottom: 16,
+  },
+  iconInnerFrame: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   appIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    borderWidth: 1,
-    boxShadow: '0 8px 22px rgba(0, 35, 28, 0.18)',
-    marginBottom: 14,
+    width: 76,
+    height: 76,
   },
   welcomeTitle: {
     fontSize: 22,
