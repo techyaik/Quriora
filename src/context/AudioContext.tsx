@@ -24,6 +24,7 @@ export interface PlayQueueItem {
   ayahNumber: number;
   audioUrl: string;
   timestamps: { startMs: number; endMs: number } | null;
+  trackType?: 'ayah' | 'surah';
 }
 
 interface AudioContextType {
@@ -43,19 +44,21 @@ interface AudioContextType {
   isLoading: boolean;
   loadingSurahId: number | null;
   loadingAyahNumber: number | null;
+  sleepTimerEndsAt: number | null;
   reciters: Reciter[];
   playAyah: (surahId: number, ayahNumber: number, reciterId?: number) => Promise<void>;
   playSurah: (surahId: number, startAyahNumber?: number, reciterId?: number) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
-  nextAyah: () => Promise<void>;
+  nextAyah: (source?: 'manual' | 'auto') => Promise<void>;
   prevAyah: () => Promise<void>;
   seekTo: (position: number) => Promise<void>;
   setSpeed: (speed: number) => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   toggleRepeatAyah: () => void;
   toggleRepeatSurah: () => void;
+  setSleepTimer: (minutes: number | null) => void;
   changeReciter: (id: number) => Promise<void>;
   lastError?: string | null;
   clearError: () => void;
@@ -78,6 +81,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [reciters, setReciters] = useState<Reciter[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
   const [surahNames, setSurahNames] = useState<Record<number, string>>({});
+  const [sleepTimerEndsAt, setSleepTimerEndsAt] = useState<number | null>(null);
 
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const playerStatus = useAudioPlayerStatus(player);
@@ -99,6 +103,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const queueLoadingRef = useRef(false);
   const pendingAdvanceRef = useRef(false);
   const playbackTokenRef = useRef(0);
+  const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateQueue = (items: PlayQueueItem[]) => {
     queueRef.current = items;
@@ -202,15 +207,36 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isPreparing, playerStatus.didJustFinish, playerStatus.error, playerStatus.playing]);
 
   useEffect(() => {
+    if (playerStatus.playing) {
+      finishHandledRef.current = false;
+    }
+  }, [playerStatus.playing]);
+
+  useEffect(() => {
     if (playerStatus.error) setLastError(playerStatus.error);
   }, [playerStatus.error]);
 
+  const replayCurrentTrack = () => {
+    void player.seekTo(0)
+      .then(() => {
+        setAudioProgress(0);
+        player.play();
+        setIsPlaying(true);
+      })
+      .catch(err => console.warn('Error replaying current track:', err));
+  };
+
   const handleAudioEnded = () => {
-    if (isRepeatAyahRef.current) {
-      void player.seekTo(0).then(() => player.play()).catch(err => console.warn('Error replaying ayah:', err));
+    const activeQueue = queueRef.current;
+    const activeIndex = queueIndexRef.current;
+    const activeItem = activeIndex >= 0 ? activeQueue[activeIndex] : null;
+    const isFullSurahTrack = activeQueue.length === 1 && activeItem?.trackType === 'surah';
+
+    if (isRepeatAyahRef.current || (isRepeatSurahRef.current && isFullSurahTrack)) {
+      replayCurrentTrack();
     } else {
       try {
-        void nextAyah();
+        void nextAyah('auto');
       } catch (e) {
         console.warn('Error advancing to next ayah:', e);
       }
@@ -274,7 +300,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { audioUrl, ayahId } = await fetchQuranAyahAudio(surahId, ayahNumber);
       if (playbackToken !== playbackTokenRef.current) return;
 
-      updateQueue([{ ayahId, ayahNumber, audioUrl, timestamps: null }]);
+      updateQueue([{ ayahId, ayahNumber, audioUrl, timestamps: null, trackType: 'ayah' }]);
       updateQueueIndex(0);
       updateCurrentSurahId(surahId);
       setCurrentAyahId(ayahId);
@@ -305,7 +331,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const fullSurahAudio = await fetchQuranFullSurahAudio(surahId);
         if (playbackToken !== playbackTokenRef.current) return;
 
-        updateQueue([fullSurahAudio]);
+        updateQueue([{ ...fullSurahAudio, trackType: 'surah' }]);
         updateQueueIndex(0);
         queueLoadingRef.current = false;
         updateCurrentSurahId(surahId);
@@ -319,7 +345,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { audioUrl, ayahId } = await fetchQuranAyahAudio(surahId, startAyahNumber);
       if (playbackToken !== playbackTokenRef.current) return;
 
-      updateQueue([{ ayahId, ayahNumber: startAyahNumber, audioUrl, timestamps: null }]);
+      updateQueue([{ ayahId, ayahNumber: startAyahNumber, audioUrl, timestamps: null, trackType: 'ayah' }]);
       updateQueueIndex(0);
       updateCurrentSurahId(surahId);
       setCurrentAyahId(ayahId);
@@ -334,7 +360,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           const startIndex = surahQueue.findIndex(item => item.ayahNumber === startAyahNumber);
           const activeIndex = startIndex !== -1 ? startIndex : 0;
-          updateQueue(surahQueue);
+          updateQueue(surahQueue.map(item => ({ ...item, trackType: 'ayah' })));
           updateQueueIndex(activeIndex);
           queueLoadingRef.current = false;
 
@@ -356,6 +382,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ayahNumber: startAyahNumber,
           audioUrl,
           timestamps: null,
+          trackType: startAyahNumber === 1 ? 'surah' as const : 'ayah' as const,
         }];
         updateQueue(fallbackQueue);
         updateQueueIndex(0);
@@ -394,6 +421,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const stop = async () => {
+    if (sleepTimerRef.current) {
+      clearTimeout(sleepTimerRef.current);
+      sleepTimerRef.current = null;
+    }
+    setSleepTimerEndsAt(null);
     player.pause();
     if (playerStatus.isLoaded) await player.seekTo(0);
     player.clearLockScreenControls();
@@ -411,10 +443,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPlaying(false);
   };
 
-  const nextAyah = async () => {
+  const setSleepTimer = (minutes: number | null) => {
+    if (sleepTimerRef.current) {
+      clearTimeout(sleepTimerRef.current);
+      sleepTimerRef.current = null;
+    }
+
+    if (!minutes || minutes <= 0) {
+      setSleepTimerEndsAt(null);
+      return;
+    }
+
+    const endsAt = Date.now() + minutes * 60 * 1000;
+    setSleepTimerEndsAt(endsAt);
+    sleepTimerRef.current = setTimeout(() => {
+      void stop();
+      setSleepTimerEndsAt(null);
+      sleepTimerRef.current = null;
+    }, minutes * 60 * 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
+    };
+  }, []);
+
+  const nextAyah = async (source: 'manual' | 'auto' = 'manual') => {
     const activeQueue = queueRef.current;
     const activeIndex = queueIndexRef.current;
     if (activeQueue.length === 0 || activeIndex === -1) return;
+    const currentSurah = currentSurahIdRef.current;
+    const isFullSurahTrack = activeQueue.length === 1 && activeQueue[0]?.trackType === 'surah';
 
     if (activeIndex + 1 < activeQueue.length) {
       const nextIndex = activeIndex + 1;
@@ -427,8 +487,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       if (queueLoadingRef.current) {
         pendingAdvanceRef.current = true;
-      } else if (isRepeatSurahRef.current && currentSurahIdRef.current) {
-        await playSurah(currentSurahIdRef.current, 1);
+      } else if (source === 'auto' && isRepeatSurahRef.current && currentSurah) {
+        await playSurah(currentSurah, 1);
+      } else if (source === 'manual' && isFullSurahTrack && currentSurah && currentSurah < 114) {
+        await playSurah(currentSurah + 1, 1);
+      } else if (source === 'manual' && isFullSurahTrack) {
+        return;
       } else {
         await stop();
       }
@@ -450,6 +514,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const activeQueue = queueRef.current;
     const activeIndex = queueIndexRef.current;
     if (activeQueue.length === 0 || activeIndex === -1) return;
+    const currentSurah = currentSurahIdRef.current;
+    const isFullSurahTrack = activeQueue.length === 1 && activeQueue[0]?.trackType === 'surah';
 
     if (activeIndex - 1 >= 0) {
       const prevIndex = activeIndex - 1;
@@ -459,6 +525,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setCurrentAyahNumber(item.ayahNumber);
 
       await playSoundUrl(item.audioUrl, currentSurahIdRef.current ?? 1, item.ayahNumber, currentReciterIdRef.current);
+    } else if (isFullSurahTrack && currentSurah && currentSurah > 1) {
+      await playSurah(currentSurah - 1, 1);
     }
   };
 
@@ -527,6 +595,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isLoading,
       loadingSurahId,
       loadingAyahNumber,
+      sleepTimerEndsAt,
       reciters,
       playAyah,
       playSurah,
@@ -540,6 +609,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setVolume,
       toggleRepeatAyah,
       toggleRepeatSurah,
+      setSleepTimer,
       changeReciter,
       lastError,
       clearError

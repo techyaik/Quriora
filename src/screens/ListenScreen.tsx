@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   ScrollView,
@@ -11,17 +12,15 @@ import {
   View,
 } from 'react-native';
 import {
-  AlertCircle,
   BookOpen,
   Check,
-  Gauge,
+  Clock3,
   Pause,
   Play,
   Repeat2,
   SkipBack,
   SkipForward,
   Square,
-  Volume2,
 } from 'lucide-react-native';
 
 import { useAudioContext } from '../context/AudioContext';
@@ -76,8 +75,6 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 };
 
-const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
-
 export const ListenScreen = () => {
   const { width } = useWindowDimensions();
   const { theme } = useThemeContext();
@@ -97,18 +94,14 @@ export const ListenScreen = () => {
     prevAyah,
     seekTo,
     changeReciter,
-    playbackSpeed,
-    setSpeed,
     isRepeatSurah,
     toggleRepeatSurah,
-    volume,
-    setVolume,
+    sleepTimerEndsAt,
+    setSleepTimer,
     audioProgress,
     currentTime,
     duration,
     isLoading,
-    lastError,
-    clearError,
   } = useAudioContext();
 
   const [surahs, setSurahs] = useState<SurahOption[]>([]);
@@ -150,9 +143,15 @@ export const ListenScreen = () => {
     return playSurah(selectedSurahId, 1);
   };
 
-  const cycleSpeed = async () => {
-    const index = SPEEDS.indexOf(playbackSpeed);
-    await setSpeed(SPEEDS[(index + 1) % SPEEDS.length]);
+  const handleSleepTimer = () => {
+    Alert.alert('Sleep Timer', 'Stop recitation automatically after:', [
+      { text: 'Off', onPress: () => setSleepTimer(null) },
+      { text: '15 min', onPress: () => setSleepTimer(15) },
+      { text: '30 min', onPress: () => setSleepTimer(30) },
+      { text: '45 min', onPress: () => setSleepTimer(45) },
+      { text: '60 min', onPress: () => setSleepTimer(60) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -227,40 +226,21 @@ export const ListenScreen = () => {
               <Play size={27} color="#FFFFFF" fill="#FFFFFF" style={styles.playIcon} />
             )}
           </TouchableOpacity>
-          <TouchableOpacity accessibilityLabel="Next Ayah" disabled={!selectedIsCurrent} onPress={nextAyah} style={styles.transportButton}>
+          <TouchableOpacity accessibilityLabel="Next Ayah" disabled={!selectedIsCurrent} onPress={() => void nextAyah()} style={styles.transportButton}>
             <SkipForward size={23} color={selectedIsCurrent ? colors.textPrimary : colors.textTertiary} />
           </TouchableOpacity>
           <TouchableOpacity accessibilityLabel="Stop recitation" disabled={!selectedIsCurrent} onPress={stop} style={[styles.utilityCircle, { backgroundColor: colors.bgTertiary }]}>
             <Square size={16} color={selectedIsCurrent ? colors.textSecondary : colors.textTertiary} fill={selectedIsCurrent ? colors.textSecondary : 'none'} />
           </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel="Sleep Timer"
+            onPress={handleSleepTimer}
+            style={[styles.utilityCircle, { backgroundColor: sleepTimerEndsAt ? colors.accentLight : colors.bgTertiary }]}
+          >
+            <Clock3 size={17} color={sleepTimerEndsAt ? colors.accent : colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
-        <View style={[styles.audioTools, { borderTopColor: colors.border }]}>
-          <TouchableOpacity onPress={cycleSpeed} style={[styles.speedButton, { backgroundColor: colors.bgTertiary }]}>
-            <Gauge size={16} color={colors.accent} />
-            <Text style={[styles.speedText, { color: colors.textPrimary }]}>{playbackSpeed}x</Text>
-          </TouchableOpacity>
-          <View style={styles.volumeControl}>
-            <Volume2 size={17} color={colors.textSecondary} />
-            <View style={styles.volumeSlider}>
-              <TrackSlider
-                value={volume}
-                accessibilityLabel="Playback volume"
-                trackColor={colors.bgTertiary}
-                fillColor={colors.accent}
-                onChange={value => void setVolume(value)}
-              />
-            </View>
-          </View>
-        </View>
-
-        {lastError ? (
-          <TouchableOpacity onPress={clearError} style={[styles.errorCard, { backgroundColor: colors.goldLight }]}>
-            <AlertCircle size={15} color={colors.gold} />
-            <Text selectable style={[styles.errorText, { color: colors.textSecondary }]}>{lastError}</Text>
-            <Text style={[styles.dismissText, { color: colors.gold }]}>Dismiss</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
 
       <View style={styles.sectionHeader}>
@@ -364,14 +344,6 @@ const styles = StyleSheet.create({
   transportButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
   playButton: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center', boxShadow: '0 7px 18px rgba(0,0,0,0.14)' },
   playIcon: { marginLeft: 3 },
-  audioTools: { width: '100%', borderTopWidth: 1, marginTop: 18, paddingTop: 15, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  speedButton: { height: 38, borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  speedText: { fontSize: 11, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  volumeControl: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  volumeSlider: { flex: 1 },
-  errorCard: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 13, padding: 11, marginTop: 14 },
-  errorText: { flex: 1, fontSize: 10, lineHeight: 15 },
-  dismissText: { fontSize: 9, fontWeight: '800' },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 },
   sectionEyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: 1 },
   sectionTitle: { fontSize: 17, fontWeight: '800', marginTop: 3 },
