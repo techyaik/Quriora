@@ -96,7 +96,7 @@ export const OnboardingScreen: React.FC = () => {
       <View style={[styles.container, { maxWidth: SCREEN_MAX_WIDTH }]}>
         <View style={styles.topBar}>
           <View style={[styles.brandMark, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <Image source={require('../../assets/icon.png')} style={styles.brandIcon} resizeMode="contain" />
+            <Image source={require('../../assets/logo-mark-transparent.png')} style={styles.brandIcon} resizeMode="contain" />
           </View>
           <Pressable onPress={() => complete(true)} hitSlop={14} style={styles.skipButton}>
             <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip</Text>
@@ -118,7 +118,7 @@ export const OnboardingScreen: React.FC = () => {
             <View style={[styles.glowLarge, { backgroundColor: colors.accentGlow }]} />
             <View style={[styles.glowSmall, { backgroundColor: colors.goldLight }]} />
             <View style={[styles.iconGlass, { backgroundColor: colors.accentLight, borderColor: colors.border }]}>
-              <Image source={require('../../assets/icon.png')} style={styles.heroIconImage} resizeMode="contain" />
+              <Image source={require('../../assets/logo-mark-transparent.png')} style={styles.heroIconImage} resizeMode="contain" />
             </View>
             <View style={[styles.iconPlate, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}>
               <SlideIcon size={compactHeight ? 38 : 46} color={colors.accent} strokeWidth={1.8} />
@@ -211,12 +211,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 48,
     justifyContent: 'center',
+    padding: 8,
     width: 48,
     boxShadow: '0 12px 28px rgba(0, 0, 0, 0.08)',
   },
   brandIcon: {
-    height: 34,
-    width: 34,
+    height: '100%',
+    width: '100%',
   },
   skipButton: {
     alignItems: 'center',
@@ -268,12 +269,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 104,
     justifyContent: 'center',
+    padding: 18,
     width: 104,
     boxShadow: '0 14px 32px rgba(0, 0, 0, 0.10)',
   },
   heroIconImage: {
-    height: 72,
-    width: 72,
+    height: '100%',
+    width: '100%',
   },
   iconPlate: {
     alignItems: 'center',

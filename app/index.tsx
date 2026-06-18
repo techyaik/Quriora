@@ -8,23 +8,27 @@ import { themeColors } from '@/src/styles/theme';
 
 const ONBOARDING_COMPLETE_KEY = 'quriora-onboarding-complete';
 const NAV_TUTORIAL_COMPLETE_KEY = 'quriora-navigation-tutorial-complete';
+const USER_NAME_KEY = 'quriora-user-name';
 
 export default function IndexRoute() {
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
-  const [initialRoute, setInitialRoute] = useState<'onboarding' | 'tutorial' | 'home' | null>(null);
+  const [initialRoute, setInitialRoute] = useState<'name-setup' | 'onboarding' | 'tutorial' | 'home' | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
     const loadStartupRoute = async () => {
-      const [onboardingComplete, tutorialComplete] = await Promise.all([
+      const [savedName, onboardingComplete, tutorialComplete] = await Promise.all([
+        AsyncStorage.getItem(USER_NAME_KEY),
         AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY),
         AsyncStorage.getItem(NAV_TUTORIAL_COMPLETE_KEY),
       ]);
 
       if (!mounted) return;
-      if (onboardingComplete !== 'true') {
+      if (!savedName?.trim()) {
+        setInitialRoute('name-setup');
+      } else if (onboardingComplete !== 'true') {
         setInitialRoute('onboarding');
       } else if (tutorialComplete !== 'true') {
         setInitialRoute('tutorial');

@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -59,6 +60,8 @@ const palette = {
   textFaint: '#9BAAA5',
   border: '#E8EDE9',
 };
+
+const USER_NAME_KEY = 'quriora-user-name';
 
 interface HomeAyah {
   textUthmani: string;
@@ -121,12 +124,19 @@ export const HomeScreen: React.FC = () => {
   const [goalEditorOpen, setGoalEditorOpen] = useState(false);
   const [draftGoalType, setDraftGoalType] = useState<ReadingGoalType>(goal.type);
   const [draftTarget, setDraftTarget] = useState(String(goal.target));
+  const [savedName, setSavedName] = useState('Reader');
 
   const compact = width < 360;
   const tablet = width >= 700;
 
   useEffect(() => {
     const loadHomeData = async () => {
+      AsyncStorage.getItem(USER_NAME_KEY)
+        .then(storedName => {
+          if (storedName?.trim()) setSavedName(storedName.trim());
+        })
+        .catch(() => {});
+
       try {
         const day = Math.floor(
           (Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86400000
@@ -152,7 +162,7 @@ export const HomeScreen: React.FC = () => {
     month: 'short',
     year: 'numeric',
   }).format(new Date());
-  const displayName = 'Reader';
+  const displayName = savedName;
   const translation = ayah?.translations.find(item => item.language === 'en')?.text ?? '';
   const readingSurahId = lastSurahId ?? 1;
   const goalLabel = goal.type === 'duration' ? 'minutes' : goal.type;
