@@ -14,10 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { api } from '../services/api';
 import { fetchQuranSurah } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuthContext } from '../context/AuthContext';
 import { useAudioContext } from '../context/AudioContext';
 import { useThemeContext } from '../context/ThemeContext';
 import { AyahCard } from '../components/AyahCard';
@@ -37,6 +35,8 @@ interface SurahData {
 }
 
 type ReadingMode = 'card' | 'continuous' | 'mushaf';
+const BOOKMARKS_KEY = 'quriora-bookmarks';
+const LEGACY_BOOKMARKS_KEY = 'nurquran-guest-bookmarks';
 
 export const SurahScreen: React.FC = () => {
   const router = useRouter();
@@ -51,7 +51,6 @@ export const SurahScreen: React.FC = () => {
     return isNaN(parsed) ? 1 : parsed;
   })();
 
-  const { user, isGuest } = useAuthContext();
   const { fontSize, theme } = useThemeContext();
   const {
     isPlaying,
@@ -79,14 +78,13 @@ export const SurahScreen: React.FC = () => {
       setLoadError('');
       try {
         setSurah(await fetchQuranSurah(surahId));
-        if (user) {
-          const bRes = await api.get('/api/user/bookmarks');
-          if (bRes.data.success) {
-            setBookmarks(bRes.data.data.map((b: any) => b.ayahId));
-          }
-        } else if (isGuest) {
-          const stored = await AsyncStorage.getItem('nurquran-guest-bookmarks');
-          setBookmarks(JSON.parse(stored || '[]'));
+        const stored = await AsyncStorage.getItem(BOOKMARKS_KEY);
+        const legacyStored = await AsyncStorage.getItem(LEGACY_BOOKMARKS_KEY);
+        const localBookmarks = JSON.parse(stored || legacyStored || '[]');
+        setBookmarks(localBookmarks);
+        if (!stored && legacyStored) {
+          await AsyncStorage.setItem(BOOKMARKS_KEY, legacyStored);
+          await AsyncStorage.removeItem(LEGACY_BOOKMARKS_KEY);
         }
       } catch (err) {
         console.warn(err);
@@ -94,7 +92,7 @@ export const SurahScreen: React.FC = () => {
       } finally {
         setLoading(false);
       }
-  }, [isGuest, surahId, user]);
+  }, [surahId]);
 
   useEffect(() => {
     void loadSurah();
@@ -173,37 +171,16 @@ export const SurahScreen: React.FC = () => {
 
   const handleBookmark = useCallback(async (ayahId: number) => {
     try {
-      if (!user) {
-        setBookmarks(prev => {
-          const isBookmarked = prev.includes(ayahId);
-          const next = isBookmarked ? prev.filter(id => id !== ayahId) : [...prev, ayahId];
-          AsyncStorage.setItem('nurquran-guest-bookmarks', JSON.stringify(next)).catch(console.warn);
-          return next;
-        });
-        return;
-      }
-      
-      let isBookmarked = false;
       setBookmarks(prev => {
-        isBookmarked = prev.includes(ayahId);
-        return prev;
+        const isBookmarked = prev.includes(ayahId);
+        const next = isBookmarked ? prev.filter(id => id !== ayahId) : [...prev, ayahId];
+        AsyncStorage.setItem(BOOKMARKS_KEY, JSON.stringify(next)).catch(console.warn);
+        return next;
       });
-
-      if (isBookmarked) {
-        const bRes = await api.get('/api/user/bookmarks');
-        const record = bRes.data.data.find((b: any) => b.ayahId === ayahId);
-        if (record) {
-          await api.delete(`/api/user/bookmarks/${record.id}`);
-        }
-        setBookmarks(prev => prev.filter(id => id !== ayahId));
-      } else {
-        await api.post('/api/user/bookmarks', { ayahId });
-        setBookmarks(prev => [...prev, ayahId]);
-      }
     } catch (err) {
       console.warn(err);
     }
-  }, [user]);
+  }, []);
 
   const handleOpenTafseer = useCallback((ayahId: number, ayahNumber: number) => {
     setActiveTafseer({ ayahId, ayahNumber });

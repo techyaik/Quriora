@@ -22,8 +22,6 @@ export class ApiError extends Error {
   }
 }
 
-let authToken: string | null = null;
-
 const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 
 const getDevelopmentUrl = () => {
@@ -39,10 +37,6 @@ export const getApiBaseUrl = () => {
   if (configuredUrl) return configuredUrl;
   if (__DEV__) return getDevelopmentUrl();
   throw new ApiError('EXPO_PUBLIC_API_URL must be configured for production builds.');
-};
-
-export const setApiAuthToken = (token: string | null) => {
-  authToken = token;
 };
 
 const buildUrl = (path: string, params?: Record<string, QueryValue>) => {
@@ -63,7 +57,6 @@ const request = async <T>(method: string, path: string, body?: unknown, options:
       headers: {
         Accept: 'application/json',
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...options.headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),

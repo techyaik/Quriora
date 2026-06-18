@@ -14,8 +14,8 @@ export default function TabLayout() {
       backgroundColor={colors.bgSecondary}
       iconColor={{ default: colors.textSecondary, selected: colors.accent }}
       labelStyle={{
-        default: { color: colors.textSecondary, fontSize: 12 },
-        selected: { color: colors.accent, fontSize: 12, fontWeight: '700' },
+        default: { color: colors.textSecondary, fontSize: 11 },
+        selected: { color: colors.accent, fontSize: 11, fontWeight: '700' },
       }}
       minimizeBehavior="never"
     >
@@ -23,36 +23,36 @@ export default function TabLayout() {
         <TabAudioAccessory />
       </NativeTabs.BottomAccessory>
 
-      <NativeTabs.Trigger name="quran" disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger name="quran" disableTransparentOnScrollEdge labelVisibilityMode="labeled">
         <NativeTabs.Trigger.Icon sf="book.closed" md="menu_book" />
         <NativeTabs.Trigger.Label>Quran</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore" disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger name="explore" disableTransparentOnScrollEdge labelVisibilityMode="labeled">
         <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
         <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="home" disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger name="home" disableTransparentOnScrollEdge labelVisibilityMode="labeled">
         <NativeTabs.Trigger.Icon
           src={{
-            default: <Home size={28} color={colors.textSecondary} />,
-            selected: <Home size={32} color={colors.accent} />,
+            default: <Home size={24} color={colors.textSecondary} />,
+            selected: <Home size={26} color={colors.accent} />,
           }}
         />
         <NativeTabs.Trigger.Label
-          selectedStyle={{ fontSize: 13, fontWeight: '800', color: colors.accent }}
+          selectedStyle={{ fontSize: 11, fontWeight: '800', color: colors.accent }}
         >
           Home
         </NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="listen" disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger name="listen" disableTransparentOnScrollEdge labelVisibilityMode="labeled">
         <NativeTabs.Trigger.Icon sf="headphones" md="headphones" />
         <NativeTabs.Trigger.Label>Listen</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="memorize" disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger name="memorize" disableTransparentOnScrollEdge labelVisibilityMode="labeled">
         <NativeTabs.Trigger.Icon sf="rosette" md="workspace_premium" />
         <NativeTabs.Trigger.Label>Memorize</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>

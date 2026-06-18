@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Modal,
   Alert,
   Linking,
@@ -13,25 +12,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { api } from '../services/api';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext, Theme } from '../context/ThemeContext';
 import { useAudioContext } from '../context/AudioContext';
-import { useAuthContext } from '../context/AuthContext';
 import { SCREEN_MAX_WIDTH, themeColors, globalStyles } from '../styles/theme';
 import Constants from 'expo-constants';
 import { releaseLinks } from '../config/release';
 import {
   Sliders,
-  User,
   Volume2,
   Share2,
   Check,
   ChevronRight,
   Sparkles,
   X,
-  LogOut,
   HelpCircle,
   Info,
   Star,
@@ -75,53 +70,21 @@ export const SettingsScreen: React.FC = () => {
     setVolume
   } = useAudioContext();
 
-  const { user, isGuest, updateUser, logout } = useAuthContext();
   const colors = themeColors[theme];
+  const supportEmail = releaseLinks.supportEmail;
+  const privacyUrl = releaseLinks.privacy;
 
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [savingAccount, setSavingAccount] = useState(false);
   const [reciterPickerVisible, setReciterPickerVisible] = useState(false);
   const [speedPickerVisible, setSpeedPickerVisible] = useState(false);
 
-  useEffect(() => {
-    if (user) setDisplayName(user.displayName || '');
-  }, [user]);
-
-  const syncDB = async (payload: any) => {
-    if (isGuest || !user) return;
-    try {
-      await api.put('/api/user/settings', payload);
-    } catch (err) {
-      console.warn('Failed to sync settings with DB:', err);
-    }
-  };
-
-  const handleSaveAccount = async () => {
-    if (!user) return;
-    setSavingAccount(true);
-    try {
-      const res = await api.put('/api/user/profile', { displayName });
-      if (res.data.success) {
-        await updateUser({ ...user, ...res.data.data, displayName });
-        Alert.alert('Success', 'Profile display name updated successfully.');
-      }
-    } catch (err) {
-      console.warn(err);
-      Alert.alert('Error', 'Failed to update profile.');
-    } finally {
-      setSavingAccount(false);
-    }
-  };
-
   const handleExport = async () => {
     try {
-      let bookmarks = [];
-      if (user) {
-        const res = await api.get('/api/user/bookmarks');
-        bookmarks = res.data.data;
-      } else {
-        const storedBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
-        bookmarks = JSON.parse(storedBookmarks || '[]');
+      const storedBookmarks = await AsyncStorage.getItem('quriora-bookmarks');
+      const legacyBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
+      const bookmarks = JSON.parse(storedBookmarks || legacyBookmarks || '[]');
+      if (!storedBookmarks && legacyBookmarks) {
+        await AsyncStorage.setItem('quriora-bookmarks', legacyBookmarks);
+        await AsyncStorage.removeItem('nurquran-guest-bookmarks');
       }
       
       const backupData = JSON.stringify(bookmarks, null, 2);
@@ -131,11 +94,6 @@ export const SettingsScreen: React.FC = () => {
       console.warn(err);
       Alert.alert('Error', 'Failed to export bookmarks.');
     }
-  };
-
-  const handleEndSession = async () => {
-    await logout();
-    router.replace('/login');
   };
 
   const THEMES = [
@@ -159,7 +117,7 @@ export const SettingsScreen: React.FC = () => {
         
         {/* ── PAGE HEADER ── */}
         <View style={styles.pageHeader}>
-          <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>Appearance, audio, account and more</Text>
+          <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>Appearance, audio, tutorial and more</Text>
         </View>
 
 
@@ -179,10 +137,9 @@ export const SettingsScreen: React.FC = () => {
                 return (
                   <TouchableOpacity
                     key={t.id}
-                    onPress={() => {
-                      setTheme(t.id);
-                      syncDB({ theme: t.id });
-                    }}
+                onPress={() => {
+                  setTheme(t.id);
+                }}
                     style={[
                       styles.themePill,
                       {
@@ -217,7 +174,6 @@ export const SettingsScreen: React.FC = () => {
                 onPress={() => {
                   const newSize = Math.max(18, fontSize - 2);
                   setFontSize(newSize);
-                  syncDB({ fontSize: newSize });
                 }}
                 style={[styles.fontSizeBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
               >
@@ -240,7 +196,6 @@ export const SettingsScreen: React.FC = () => {
                 onPress={() => {
                   const newSize = Math.min(52, fontSize + 2);
                   setFontSize(newSize);
-                  syncDB({ fontSize: newSize });
                 }}
                 style={[styles.fontSizeBtn, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
               >
@@ -260,7 +215,6 @@ export const SettingsScreen: React.FC = () => {
               <TouchableOpacity
                 onPress={() => {
                   setShowTajweed(!showTajweed);
-                  syncDB({ showTajweed: !showTajweed });
                 }}
                 style={[
                   styles.switchTrack,
@@ -280,7 +234,6 @@ export const SettingsScreen: React.FC = () => {
               <TouchableOpacity
                 onPress={() => {
                   setShowTranslation(!showTranslation);
-                  syncDB({ showTranslation: !showTranslation });
                 }}
                 style={[
                   styles.switchTrack,
@@ -300,7 +253,6 @@ export const SettingsScreen: React.FC = () => {
               <TouchableOpacity
                 onPress={() => {
                   setShowTransliteration(!showTransliteration);
-                  syncDB({ showTransliteration: !showTransliteration });
                 }}
                 style={[
                   styles.switchTrack,
@@ -382,66 +334,6 @@ export const SettingsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* ── ACCOUNT SECTION ── */}
-        <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
-            <User size={18} color={colors.accent} />
-            <Text style={[styles.sectionTitleText, { color: colors.textPrimary }]}>Account Profile</Text>
-          </View>
-
-          {!isGuest && user ? (
-            <View style={styles.accountForm}>
-              <View style={styles.inputWrapper}>
-                <Text style={[styles.inputFieldLabel, { color: colors.textSecondary }]}>Email Address</Text>
-                <TextInput
-                  value={user.email}
-                  editable={false}
-                  style={[styles.disabledTextInput, { backgroundColor: colors.bgSecondary, color: colors.textTertiary, borderColor: colors.border }]}
-                />
-              </View>
-
-              <View style={styles.inputWrapper}>
-                <Text style={[styles.inputFieldLabel, { color: colors.textSecondary }]}>Display Name</Text>
-                <TextInput
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  style={[styles.activeTextInput, { backgroundColor: colors.bgPrimary, color: colors.textPrimary, borderColor: colors.border }]}
-                />
-              </View>
-
-              <TouchableOpacity
-                onPress={handleSaveAccount}
-                disabled={savingAccount}
-                style={[styles.saveProfileBtn, { backgroundColor: colors.accent }]}
-              >
-                <Text style={styles.saveProfileBtnText}>
-                  {savingAccount ? 'Saving...' : 'Save Profile'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.guestCenter}>
-              <View style={[styles.guestIconWrap, { backgroundColor: colors.accentLight }]}>
-                <Sparkles size={24} color={colors.accent} />
-              </View>
-              <Text style={[styles.guestTitle, { color: colors.textPrimary }]}>Guest Mode Active</Text>
-              <Text style={[styles.guestDesc, { color: colors.textSecondary }]}>
-                Sign in to sync your progress, bookmarks, and notes across all your mobile and web devices.
-              </Text>
-              <TouchableOpacity onPress={handleEndSession} style={[styles.saveProfileBtn, { backgroundColor: colors.accent, alignSelf: 'stretch', marginTop: 16 }]}>
-                <Text style={styles.saveProfileBtnText}>Go to Sign In</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {!isGuest && user && (
-            <TouchableOpacity onPress={handleEndSession} style={[styles.sessionBtn, { borderColor: colors.border }]}>
-              <LogOut size={16} color="#C0392B" />
-              <Text style={styles.sessionBtnText}>Log Out</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
         {/* ── DATA BACKUP SECTION ── */}
         <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
@@ -462,75 +354,59 @@ export const SettingsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* ── HELP & SUPPORT SECTION ── */}
-        <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
-            <HelpCircle size={18} color={colors.accent} />
-            <Text style={[styles.sectionTitleText, { color: colors.textPrimary }]}>Help & Support</Text>
+        {supportEmail ? (
+          <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
+              <HelpCircle size={18} color={colors.accent} />
+              <Text style={[styles.sectionTitleText, { color: colors.textPrimary }]}>Help & Support</Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => openURL(`mailto:${supportEmail}?subject=Support%20Request`, 'Support Email')}
+              style={[styles.helpRow, { borderBottomColor: colors.border }]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+                <Mail size={15} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Contact Support</Text>
+                <Text style={[styles.helpHint, { color: colors.textTertiary }]}>{supportEmail}</Text>
+              </View>
+              <ChevronRight size={15} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => openURL(`mailto:${supportEmail}?subject=Feature%20Request`, 'Support Email')}
+              style={[styles.helpRow, { borderBottomColor: colors.border }]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+                <Star size={15} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Request a Feature</Text>
+                <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Share your ideas with us</Text>
+              </View>
+              <ChevronRight size={15} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => openURL(`mailto:${supportEmail}?subject=Bug%20Report`, 'Support Email')}
+              style={[styles.helpRow, { borderBottomWidth: 0 }]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.helpIconWrap, { backgroundColor: 'rgba(231,76,60,0.1)' }]}>
+                <Bug size={15} color="#E74C3C" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Report an Issue</Text>
+                <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Help us improve Quriora</Text>
+              </View>
+              <ChevronRight size={15} color={colors.textTertiary} />
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            onPress={() => openURL(
-              releaseLinks.supportEmail
-                ? `mailto:${releaseLinks.supportEmail}?subject=Support%20Request`
-                : null,
-              'Support Email'
-            )}
-            style={[styles.helpRow, { borderBottomColor: colors.border }]}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
-              <Mail size={15} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Contact Support</Text>
-              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>
-                {releaseLinks.supportEmail ?? 'Required before store submission'}
-              </Text>
-            </View>
-            <ChevronRight size={15} color={colors.textTertiary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => openURL(
-              releaseLinks.supportEmail
-                ? `mailto:${releaseLinks.supportEmail}?subject=Feature%20Request`
-                : null,
-              'Support Email'
-            )}
-            style={[styles.helpRow, { borderBottomColor: colors.border }]}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
-              <Star size={15} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Request a Feature</Text>
-              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Share your ideas with us</Text>
-            </View>
-            <ChevronRight size={15} color={colors.textTertiary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => openURL(
-              releaseLinks.supportEmail
-                ? `mailto:${releaseLinks.supportEmail}?subject=Bug%20Report`
-                : null,
-              'Support Email'
-            )}
-            style={[styles.helpRow, { borderBottomWidth: 0 }]}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.helpIconWrap, { backgroundColor: 'rgba(231,76,60,0.1)' }]}>
-              <Bug size={15} color="#E74C3C" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Report an Issue</Text>
-              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Help us improve Quriora</Text>
-            </View>
-            <ChevronRight size={15} color={colors.textTertiary} />
-          </TouchableOpacity>
-        </View>
+        ) : null}
 
         {/* ── ABOUT APP SECTION ── */}
         <View style={[styles.sectionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -538,6 +414,21 @@ export const SettingsScreen: React.FC = () => {
             <Info size={18} color={colors.accent} />
             <Text style={[styles.sectionTitleText, { color: colors.textPrimary }]}>About</Text>
           </View>
+
+          <TouchableOpacity
+            onPress={() => router.push('/onboarding')}
+            style={[styles.helpRow, { borderBottomColor: colors.border }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+              <Sparkles size={15} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>View Onboarding Tutorial</Text>
+              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Replay the app introduction and navigation guide</Text>
+            </View>
+            <ChevronRight size={15} color={colors.textTertiary} />
+          </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => router.push('/explore/about')}
@@ -569,20 +460,22 @@ export const SettingsScreen: React.FC = () => {
             <ChevronRight size={15} color={colors.textTertiary} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => openURL(releaseLinks.privacy, 'Privacy Policy')}
-            style={[styles.helpRow, { borderBottomColor: colors.border }]}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
-              <Shield size={15} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Privacy Policy</Text>
-              <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Required before store submission</Text>
-            </View>
-            <ChevronRight size={15} color={colors.textTertiary} />
-          </TouchableOpacity>
+          {privacyUrl ? (
+            <TouchableOpacity
+              onPress={() => openURL(privacyUrl, 'Privacy Policy')}
+              style={[styles.helpRow, { borderBottomColor: colors.border }]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
+                <Shield size={15} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.helpLabel, { color: colors.textPrimary }]}>Privacy Policy</Text>
+                <Text style={[styles.helpHint, { color: colors.textTertiary }]}>Review app privacy details</Text>
+              </View>
+              <ChevronRight size={15} color={colors.textTertiary} />
+            </TouchableOpacity>
+          ) : null}
 
           <View style={[styles.helpRow, { borderBottomWidth: 0 }]}>
             <View style={[styles.helpIconWrap, { backgroundColor: colors.accentLight }]}>
@@ -621,7 +514,6 @@ export const SettingsScreen: React.FC = () => {
                   key={item.id}
                   onPress={async () => {
                     await changeReciter(item.id);
-                    await syncDB({ reciterId: item.id });
                     setReciterPickerVisible(false);
                   }}
                   style={[
@@ -929,87 +821,6 @@ const styles = StyleSheet.create({
   volumeTrackFill: {
     height: '100%',
     borderRadius: 3,
-  },
-  accountForm: {
-    gap: 12,
-  },
-  inputWrapper: {
-    gap: 4,
-  },
-  inputFieldLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginLeft: 2,
-  },
-  disabledTextInput: {
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  activeTextInput: {
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  saveProfileBtn: {
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
-  },
-  saveProfileBtnText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  sessionBtn: {
-    height: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    marginTop: 14,
-  },
-  sessionBtnText: {
-    color: '#C0392B',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  guestCenter: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  guestIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  guestTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  guestDesc: {
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 16,
-    paddingHorizontal: 20,
   },
   backupDesc: {
     fontSize: 11,

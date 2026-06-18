@@ -124,12 +124,6 @@ const ATTRIBUTIONS: Attribution[] = [
         license: 'MIT License',
         url: 'https://react-native-async-storage.github.io',
       },
-      {
-        name: 'expo-secure-store',
-        description: 'Secure encrypted storage for auth tokens',
-        license: 'MIT License',
-        url: 'https://docs.expo.dev/versions/latest/sdk/securestore',
-      },
     ],
   },
 ];

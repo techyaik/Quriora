@@ -12,7 +12,6 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AudioProvider } from '@/src/context/AudioContext';
-import { AuthProvider } from '@/src/context/AuthContext';
 import { ThemeProvider } from '@/src/context/ThemeContext';
 import { DrawerProvider } from '@/src/context/DrawerContext';
 import { ReadingGoalProvider } from '@/src/context/ReadingGoalContext';
@@ -40,18 +39,16 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <ThemeProvider>
-          <AudioProvider>
-            <ReadingGoalProvider>
-              <DrawerProvider>
-                <StatusBar style="auto" />
-                <Stack screenOptions={{ headerShown: false }} />
-              </DrawerProvider>
-            </ReadingGoalProvider>
-          </AudioProvider>
-        </ThemeProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AudioProvider>
+          <ReadingGoalProvider>
+            <DrawerProvider>
+              <StatusBar style="auto" />
+              <Stack screenOptions={{ headerShown: false }} />
+            </DrawerProvider>
+          </ReadingGoalProvider>
+        </AudioProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

@@ -12,10 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { api } from '../services/api';
 import { fetchQuranAyah } from '../services/quranFallback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuthContext } from '../context/AuthContext';
 import { useThemeContext } from '../context/ThemeContext';
 import { themeColors, globalStyles } from '../styles/theme';
 import {
@@ -30,6 +28,11 @@ import {
   AlertCircle,
   X
 } from 'lucide-react-native';
+
+const BOOKMARKS_KEY = 'quriora-bookmarks';
+const LEGACY_BOOKMARKS_KEY = 'nurquran-guest-bookmarks';
+const NOTE_KEY_PREFIX = 'quriora-note-';
+const LEGACY_NOTE_KEY_PREFIX = 'nurquran-guest-note-';
 
 interface BookmarkItem {
   id: number;
@@ -49,7 +52,6 @@ interface BookmarkItem {
 }
 
 export const BookmarksScreen: React.FC = () => {
-  const { user, isGuest } = useAuthContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
   const router = useRouter();
@@ -69,47 +71,56 @@ export const BookmarksScreen: React.FC = () => {
     setLoading(true);
     setLoadError('');
     try {
-      if (user) {
-        const res = await api.get('/api/user/bookmarks');
-        if (res.data.success) {
-          setBookmarks(res.data.data);
+      const storedBookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
+      const legacyBookmarks = await AsyncStorage.getItem(LEGACY_BOOKMARKS_KEY);
+      const ayahIds: number[] = JSON.parse(storedBookmarks || legacyBookmarks || '[]');
+
+      if (!storedBookmarks && legacyBookmarks) {
+        await AsyncStorage.setItem(BOOKMARKS_KEY, legacyBookmarks);
+        await AsyncStorage.removeItem(LEGACY_BOOKMARKS_KEY);
+      }
+
+      if (ayahIds.length > 0) {
+        const responses: Array<Awaited<ReturnType<typeof fetchQuranAyah>>> = [];
+        for (let index = 0; index < ayahIds.length; index += 8) {
+          const batch = ayahIds.slice(index, index + 8);
+          responses.push(...await Promise.all(batch.map(fetchQuranAyah)));
         }
+        const noteEntries = await AsyncStorage.multiGet(
+          responses.map(ayah => `${NOTE_KEY_PREFIX}${ayah.id}`)
+        );
+        const legacyNoteEntries = await AsyncStorage.multiGet(
+          responses.map(ayah => `${LEGACY_NOTE_KEY_PREFIX}${ayah.id}`)
+        );
+        await Promise.all(
+          legacyNoteEntries.map(async ([legacyKey, legacyValue], idx) => {
+            if (!legacyValue || noteEntries[idx]?.[1]) return;
+            await AsyncStorage.setItem(`${NOTE_KEY_PREFIX}${responses[idx].id}`, legacyValue);
+            await AsyncStorage.removeItem(legacyKey);
+          })
+        );
+        const bookmarksList: BookmarkItem[] = responses.map((ayah, idx) => {
+          const note = noteEntries[idx]?.[1] ?? legacyNoteEntries[idx]?.[1];
+          return {
+            id: ayahIds[idx],
+            ayahId: ayah.id,
+            note: note || '',
+            createdAt: new Date().toISOString(),
+            ayah: {
+              ayahNumber: ayah.ayahNumber,
+              surahId: ayah.surahId,
+              textUthmani: ayah.textUthmani,
+              surah: {
+                nameEnglish: ayah.surah.nameEnglish,
+                nameArabic: ayah.surah.nameArabic
+              },
+              translations: ayah.translations
+            }
+          };
+        });
+        setBookmarks(bookmarksList);
       } else {
-        // Load guest bookmarks from localStorage/AsyncStorage
-        const storedGuestBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
-        const guestAyahIds: number[] = JSON.parse(storedGuestBookmarks || '[]');
-        if (guestAyahIds.length > 0) {
-          const responses = [];
-          for (let index = 0; index < guestAyahIds.length; index += 8) {
-            const batch = guestAyahIds.slice(index, index + 8);
-            responses.push(...await Promise.all(batch.map(fetchQuranAyah)));
-          }
-          const noteEntries = await AsyncStorage.multiGet(
-            responses.map(ayah => `nurquran-guest-note-${ayah.id}`)
-          );
-          const guestBookmarksList: BookmarkItem[] = responses.map((ayah, idx) => {
-              const note = noteEntries[idx]?.[1];
-              return {
-                id: guestAyahIds[idx], // Mock ID
-                ayahId: ayah.id,
-                note: note || '',
-                createdAt: new Date().toISOString(),
-                ayah: {
-                  ayahNumber: ayah.ayahNumber,
-                  surahId: ayah.surahId,
-                  textUthmani: ayah.textUthmani,
-                  surah: {
-                    nameEnglish: ayah.surah.nameEnglish,
-                    nameArabic: ayah.surah.nameArabic
-                  },
-                  translations: ayah.translations
-                }
-              };
-            });
-          setBookmarks(guestBookmarksList);
-        } else {
-          setBookmarks([]);
-        }
+        setBookmarks([]);
       }
     } catch (err) {
       console.warn('Failed to load bookmarks:', err);
@@ -121,25 +132,21 @@ export const BookmarksScreen: React.FC = () => {
 
   useEffect(() => {
     fetchBookmarks();
-  }, [user]);
+  }, []);
 
   const handleDeleteBookmark = useCallback(async (bookmarkId: number, ayahId: number) => {
     try {
-      if (user) {
-        await api.delete(`/api/user/bookmarks/${bookmarkId}`);
-      } else {
-        const storedGuestBookmarks = await AsyncStorage.getItem('nurquran-guest-bookmarks');
-        let guestBookmarks = JSON.parse(storedGuestBookmarks || '[]');
-        guestBookmarks = guestBookmarks.filter((id: number) => id !== ayahId);
-        await AsyncStorage.setItem('nurquran-guest-bookmarks', JSON.stringify(guestBookmarks));
-        await AsyncStorage.removeItem(`nurquran-guest-note-${ayahId}`);
-      }
+      const storedBookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
+      let localBookmarks = JSON.parse(storedBookmarks || '[]');
+      localBookmarks = localBookmarks.filter((id: number) => id !== ayahId);
+      await AsyncStorage.setItem(BOOKMARKS_KEY, JSON.stringify(localBookmarks));
+      await AsyncStorage.removeItem(`${NOTE_KEY_PREFIX}${ayahId}`);
       setBookmarks(current => current.filter(b => b.id !== bookmarkId));
       Alert.alert('Success', 'Bookmark removed.');
     } catch (err) {
       console.warn('Failed to delete bookmark:', err);
     }
-  }, [user]);
+  }, []);
 
   const handleStartEdit = useCallback((item: BookmarkItem) => {
     setEditingId(item.id);
@@ -148,19 +155,14 @@ export const BookmarksScreen: React.FC = () => {
 
   const handleSaveNote = useCallback(async (item: BookmarkItem) => {
     try {
-      if (user) {
-        await api.put(`/api/user/bookmarks/${item.id}`, { note: editNoteText });
-        setBookmarks(current => current.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
-      } else {
-        await AsyncStorage.setItem(`nurquran-guest-note-${item.ayahId}`, editNoteText);
-        setBookmarks(current => current.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
-      }
+      await AsyncStorage.setItem(`${NOTE_KEY_PREFIX}${item.ayahId}`, editNoteText);
+      setBookmarks(current => current.map(b => b.id === item.id ? { ...b, note: editNoteText } : b));
       setEditingId(null);
       Alert.alert('Saved', 'Personal note updated successfully.');
     } catch (err) {
       console.warn('Failed to save note:', err);
     }
-  }, [user, editNoteText]);
+  }, [editNoteText]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
@@ -244,16 +246,6 @@ export const BookmarksScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Guest Warning */}
-        {isGuest && (
-          <View style={[styles.guestWarning, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}>
-            <AlertCircle size={16} color={colors.accent} style={{ marginTop: 2 }} />
-            <Text style={[styles.guestWarningText, { color: colors.textSecondary }]}>
-              You are viewing local bookmarks. Sign in to synchronize your favorites permanently across devices.
-            </Text>
-          </View>
-        )}
 
         {/* Toolbar (Search + Checkbox Grouping) */}
         {bookmarks.length > 0 && (
@@ -500,20 +492,6 @@ const styles = StyleSheet.create({
   exportBtnText: {
     fontSize: 11,
     fontWeight: '700',
-  },
-  guestWarning: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    gap: 8,
-    marginBottom: 16,
-  },
-  guestWarningText: {
-    flex: 1,
-    fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 14,
   },
   toolbar: {
     borderRadius: 20,

@@ -34,7 +34,6 @@ import {
 
 import { MenuIcon } from '../components/MenuIcon';
 import { fetchQuranAyah } from '../services/quranFallback';
-import { useAuthContext } from '../context/AuthContext';
 import { useDrawerContext } from '../context/DrawerContext';
 import { type ReadingGoalType, useReadingGoal } from '../context/ReadingGoalContext';
 import { useThemeContext } from '../context/ThemeContext';
@@ -106,7 +105,6 @@ export const HomeScreen: React.FC = () => {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { openDrawer } = useDrawerContext();
-  const { user, isGuest } = useAuthContext();
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
 
@@ -154,7 +152,7 @@ export const HomeScreen: React.FC = () => {
     month: 'short',
     year: 'numeric',
   }).format(new Date());
-  const displayName = user?.displayName || (isGuest ? 'Guest' : 'Reader');
+  const displayName = 'Reader';
   const translation = ayah?.translations.find(item => item.language === 'en')?.text ?? '';
   const readingSurahId = lastSurahId ?? 1;
   const goalLabel = goal.type === 'duration' ? 'minutes' : goal.type;
