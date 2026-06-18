@@ -279,7 +279,7 @@ export const SettingsScreen: React.FC = () => {
               onPress={() => setReciterPickerVisible(true)}
               style={[styles.customDropdownTrigger, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
             >
-              <Text style={[styles.customDropdownText, { color: colors.textPrimary }]}>
+              <Text numberOfLines={1} style={[styles.customDropdownText, { color: colors.textPrimary }]}>
                 {activeReciter ? `${activeReciter.nameEnglish} (${activeReciter.style})` : 'Select Reciter'}
               </Text>
               <ChevronRight size={16} color={colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
@@ -293,7 +293,7 @@ export const SettingsScreen: React.FC = () => {
               onPress={() => setSpeedPickerVisible(true)}
               style={[styles.customDropdownTrigger, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
             >
-              <Text style={[styles.customDropdownText, { color: colors.textPrimary }]}>
+              <Text numberOfLines={1} style={[styles.customDropdownText, { color: colors.textPrimary }]}>
                 {SPEED_OPTIONS.find(o => o.value === playbackSpeed)?.label || '1.0× Normal'}
               </Text>
               <ChevronRight size={16} color={colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
@@ -792,6 +792,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   customDropdownText: {
+    flex: 1,
     fontSize: 12,
     fontWeight: '700',
   },

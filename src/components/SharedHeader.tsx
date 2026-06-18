@@ -37,7 +37,9 @@ export const SharedHeader: React.FC<SharedHeaderProps> = ({ options, route, navi
   const routeReturnTo = route?.params?.returnTo;
   const rawReturnTo = Array.isArray(routeReturnTo)
     ? routeReturnTo[0]
-    : routeReturnTo ?? (Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo);
+    : routeReturnTo
+      ?? (Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo)
+      ?? (route.name === 'settings' ? '/home' : null);
   const returnTo = rawReturnTo && rawReturnTo !== pathname ? rawReturnTo : null;
 
   const returnToSourceScreen = useCallback(() => {

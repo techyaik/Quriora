@@ -210,9 +210,9 @@ export const HomeScreen: React.FC = () => {
           </View>
  
           <View style={[styles.welcomeRow, compact && styles.welcomeRowCompact]}>
-            <View>
+            <View style={styles.welcomeTextBlock}>
               <Text style={[styles.welcomeEyebrow, { color: 'rgba(255, 255, 255, 0.7)' }]}>ASSALAMU ALAIKUM</Text>
-              <Text style={[styles.welcomeName, { color: '#FFFFFF' }]}>{displayName}</Text>
+              <Text numberOfLines={1} style={[styles.welcomeName, { color: '#FFFFFF' }]}>{displayName}</Text>
             </View>
             <View style={[styles.dateBlock, compact && styles.dateBlockCompact]}>
               <Text style={[styles.dateText, { color: 'rgba(255, 255, 255, 0.65)' }]}>{gregorianDate}</Text>
@@ -442,6 +442,7 @@ const styles = StyleSheet.create({
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   welcomeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18 },
   welcomeRowCompact: { alignItems: 'flex-start', flexDirection: 'column', gap: 9 },
+  welcomeTextBlock: { flex: 1, minWidth: 0, paddingRight: 10 },
   welcomeEyebrow: { color: palette.tealBright, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
   welcomeName: { color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginTop: 4 },
   dateBlock: { alignItems: 'flex-end', maxWidth: '50%' },

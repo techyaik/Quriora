@@ -581,6 +581,10 @@ export const HifzScreen: React.FC = () => {
             <FlatList
               data={surahs}
               keyExtractor={(item) => item.id.toString()}
+              initialNumToRender={12}
+              maxToRenderPerBatch={10}
+              windowSize={7}
+              removeClippedSubviews={process.env.EXPO_OS !== 'web'}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => {

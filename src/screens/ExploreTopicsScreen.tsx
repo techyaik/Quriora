@@ -70,6 +70,10 @@ export const ExploreTopicsScreen = () => {
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.content}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews={process.env.EXPO_OS !== 'web'}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={[styles.banner, { backgroundColor: colors.accent }]}>

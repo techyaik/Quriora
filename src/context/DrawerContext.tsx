@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useEffect, useState } from 'react';
 import {
   Modal,
   View,
@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Animated,
-  Switch,
   ScrollView,
   Share,
   Platform,
@@ -45,7 +44,6 @@ export const useDrawerContext = () => {
 
 export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [collectUsage, setCollectUsage] = useState(true);
   const { theme } = useThemeContext();
   const colors = themeColors[theme];
   const router = useRouter();
@@ -88,9 +86,9 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [fadeAnim, isDrawerOpen, drawerWidth, slideAnim, useNativeDriver]);
 
-  const openDrawer = () => setIsDrawerOpen(true);
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
 
-  const closeDrawer = () => {
+  const closeDrawer = useCallback(() => {
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: -drawerWidth,
@@ -103,9 +101,9 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         useNativeDriver,
       }),
     ]).start(() => setIsDrawerOpen(false));
-  };
+  }, [drawerWidth, fadeAnim, slideAnim, useNativeDriver]);
 
-  const navigateAndClose = (path: Href) => {
+  const navigateAndClose = useCallback((path: Href) => {
     closeDrawer();
     setTimeout(() => {
       if (typeof path === 'string') {
@@ -114,9 +112,9 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         router.push(path);
       }
     }, 300);
-  };
+  }, [closeDrawer, pathname, router]);
 
-  const openURL = async (url: string) => {
+  const openURL = useCallback(async (url: string) => {
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -127,17 +125,17 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch {
       Alert.alert('Error', 'Failed to open link.');
     }
-  };
+  }, []);
 
-  const openConfiguredURL = async (url: string | null, label: string) => {
+  const openConfiguredURL = useCallback(async (url: string | null, label: string) => {
     if (!url) {
       Alert.alert(`${label} unavailable`, `${label} has not been configured for this release.`);
       return;
     }
     await openURL(url);
-  };
+  }, [openURL]);
 
-  const handleShare = async () => {
+  const handleShare = useCallback(async () => {
     try {
       const storeUrl = Platform.OS === 'web' ? null : getStoreUrl(Platform.OS === 'ios' ? 'ios' : 'android');
       await Share.share({
@@ -149,25 +147,25 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch {
       // user cancelled share
     }
-  };
+  }, []);
 
-  const handleRateApp = () => {
+  const handleRateApp = useCallback(() => {
     const storeUrl = Platform.OS === 'web' ? null : getStoreUrl(Platform.OS === 'ios' ? 'ios' : 'android');
     void openConfiguredURL(storeUrl, 'Store Listing');
     closeDrawer();
-  };
+  }, [closeDrawer, openConfiguredURL]);
 
-  const handleTerms = () => {
+  const handleTerms = useCallback(() => {
     void openConfiguredURL(releaseLinks.terms, 'Terms and Privacy Policy');
     closeDrawer();
-  };
+  }, [closeDrawer, openConfiguredURL]);
 
-  const handleMyHajj = () => {
-    openURL(HAJJ_URL);
+  const handleMyHajj = useCallback(() => {
+    void openURL(HAJJ_URL);
     closeDrawer();
-  };
+  }, [closeDrawer, openURL]);
 
-  const handleRequestFeature = () => {
+  const handleRequestFeature = useCallback(() => {
     void openConfiguredURL(
       releaseLinks.supportEmail
         ? `mailto:${releaseLinks.supportEmail}?subject=Feature%20Request&body=Hi%20Quriora%20team%2C%0A%0AI%20would%20like%20to%20suggest%3A`
@@ -175,9 +173,9 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       'Support Email'
     );
     closeDrawer();
-  };
+  }, [closeDrawer, openConfiguredURL]);
 
-  const handleReportIssue = () => {
+  const handleReportIssue = useCallback(() => {
     void openConfiguredURL(
       releaseLinks.supportEmail
         ? `mailto:${releaseLinks.supportEmail}?subject=Bug%20Report&body=Hi%20Quriora%20team%2C%0A%0AI%20found%20an%20issue%3A`
@@ -185,7 +183,7 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       'Support Email'
     );
     closeDrawer();
-  };
+  }, [closeDrawer, openConfiguredURL]);
 
   interface MenuItem {
     label: string;
@@ -193,46 +191,72 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     onPress: () => void;
   }
 
-  const menuItems: MenuItem[] = [
-    {
-      label: 'My Hajj Guide',
-      icon: <Globe size={17} color={colors.accent} />,
-      onPress: handleMyHajj,
-    },
-    {
-      label: 'About Quriora',
-      icon: <Info size={17} color={colors.accent} />,
-      onPress: () => navigateAndClose('/explore/about'),
-    },
-    {
-      label: 'Attributions',
-      icon: <Book size={17} color={colors.accent} />,
-      onPress: () => navigateAndClose('/explore/attributions'),
-    },
-    {
-      label: 'Request a Feature',
-      icon: <Star size={17} color={colors.accent} />,
-      onPress: handleRequestFeature,
-    },
-    {
-      label: 'Report an Issue',
-      icon: <Bug size={17} color={colors.accent} />,
-      onPress: handleReportIssue,
-    },
-    {
-      label: 'Rate Quriora',
-      icon: <Star size={17} color="#F4774A" />,
-      onPress: handleRateApp,
-    },
-    {
-      label: 'Terms & Privacy Policy',
+  const menuItems: MenuItem[] = useMemo(() => {
+    const items: MenuItem[] = [
+      {
+        label: 'My Hajj Guide',
+        icon: <Globe size={17} color={colors.accent} />,
+        onPress: handleMyHajj,
+      },
+      {
+        label: 'About Quriora',
+        icon: <Info size={17} color={colors.accent} />,
+        onPress: () => navigateAndClose('/explore/about'),
+      },
+      {
+        label: 'Attributions',
+        icon: <Book size={17} color={colors.accent} />,
+        onPress: () => navigateAndClose('/explore/attributions'),
+      },
+    ];
+
+    if (releaseLinks.supportEmail) {
+      items.push(
+        {
+          label: 'Request a Feature',
+          icon: <Star size={17} color={colors.accent} />,
+          onPress: handleRequestFeature,
+        },
+        {
+          label: 'Report an Issue',
+          icon: <Bug size={17} color={colors.accent} />,
+          onPress: handleReportIssue,
+        }
+      );
+    }
+
+    if (Platform.OS !== 'web' && getStoreUrl(Platform.OS === 'ios' ? 'ios' : 'android')) {
+      items.push({
+        label: 'Rate Quriora',
+        icon: <Star size={17} color="#F4774A" />,
+        onPress: handleRateApp,
+      });
+    }
+
+    items.push({
+      label: 'Terms & Privacy',
       icon: <MessageCircle size={17} color={colors.accent} />,
       onPress: handleTerms,
-    },
-  ];
+    });
+
+    return items;
+  }, [
+    colors.accent,
+    handleMyHajj,
+    handleRateApp,
+    handleReportIssue,
+    handleRequestFeature,
+    handleTerms,
+    navigateAndClose,
+  ]);
+
+  const contextValue = useMemo(
+    () => ({ isDrawerOpen, openDrawer, closeDrawer }),
+    [closeDrawer, isDrawerOpen, openDrawer]
+  );
 
   return (
-    <DrawerContext.Provider value={{ isDrawerOpen, openDrawer, closeDrawer }}>
+    <DrawerContext.Provider value={contextValue}>
       {children}
 
       <Modal
@@ -277,9 +301,9 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               >
                 {/* Menu List */}
                 <View style={styles.menuList}>
-                  {menuItems.map((item, idx) => (
+                  {menuItems.map((item) => (
                     <TouchableOpacity
-                      key={idx}
+                      key={item.label}
                       onPress={item.onPress}
                       style={[styles.menuItem, { borderBottomColor: colors.border }]}
                       activeOpacity={0.6}
@@ -293,20 +317,6 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                       <ArrowRight size={14} color={colors.textTertiary} />
                     </TouchableOpacity>
                   ))}
-                </View>
-
-                {/* Analytics Toggle */}
-                <View style={[styles.switchContainer, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.switchLabel, { color: colors.textSecondary }]}>
-                    Anonymously share usage & crash reports
-                  </Text>
-                  <Switch
-                    value={collectUsage}
-                    onValueChange={setCollectUsage}
-                    trackColor={{ false: '#767577', true: colors.accent }}
-                    thumbColor={Platform.OS === 'ios' ? undefined : '#f4f3f4'}
-                    ios_backgroundColor="#767577"
-                  />
                 </View>
 
                 {/* Action Cards */}
@@ -330,27 +340,29 @@ export const DrawerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     </View>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => void openConfiguredURL(
-                      releaseLinks.supportEmail ? `mailto:${releaseLinks.supportEmail}?subject=Support` : null,
-                      'Support Email'
-                    )}
-                    style={[
-                      styles.actionCard,
-                      {
-                        borderColor: colors.accent,
-                        backgroundColor: colors.bgCard,
-                      },
-                    ]}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.cardText, { color: colors.textPrimary }]}>
-                      Support Quriora
-                    </Text>
-                    <View style={[styles.cardIconWrap, { backgroundColor: colors.accentLight }]}>
-                      <Heart size={16} color={colors.accent} fill={colors.accent} />
-                    </View>
-                  </TouchableOpacity>
+                  {releaseLinks.supportEmail ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const supportEmail = releaseLinks.supportEmail;
+                        if (supportEmail) void openConfiguredURL(`mailto:${supportEmail}?subject=Support`, 'Support Email');
+                      }}
+                      style={[
+                        styles.actionCard,
+                        {
+                          borderColor: colors.accent,
+                          backgroundColor: colors.bgCard,
+                        },
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.cardText, { color: colors.textPrimary }]}>
+                        Support Quriora
+                      </Text>
+                      <View style={[styles.cardIconWrap, { backgroundColor: colors.accentLight }]}>
+                        <Heart size={16} color={colors.accent} fill={colors.accent} />
+                      </View>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </ScrollView>
 
@@ -438,21 +450,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 16,
-    marginBottom: 20,
-  },
-  switchLabel: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
   },
   cardsContainer: {
     gap: 10,

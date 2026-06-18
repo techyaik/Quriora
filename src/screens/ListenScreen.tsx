@@ -345,6 +345,10 @@ export const ListenScreen = () => {
           keyExtractor={item => String(item.id)}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.surahList}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={process.env.EXPO_OS !== 'web'}
           renderItem={({ item }) => {
             const selected = item.id === selectedSurahId;
             return (
